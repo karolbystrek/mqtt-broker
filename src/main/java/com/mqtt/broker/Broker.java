@@ -15,7 +15,7 @@ public class Broker implements AutoCloseable {
 
     private static final String HOST = "localhost";
     private static final int PORT = 1883;
-    
+
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
 
@@ -36,7 +36,7 @@ public class Broker implements AutoCloseable {
                         if (key.isAcceptable()) {
                             acceptConnection(key);
                         } else if (key.isReadable()) {
-                            echo(key);
+                            handleRead(key);
                         }
                     } catch (IOException e) {
                         System.err.println("Error handling client" + key + ": " + e.getMessage());
@@ -54,9 +54,9 @@ public class Broker implements AutoCloseable {
         }
     }
 
-    private void echo(SelectionKey key) throws IOException {
+    private void handleRead(SelectionKey key) throws IOException {
         var clientChannel = (SocketChannel) key.channel();
-        var buffer = ByteBuffer.allocate(1024);
+        var buffer = ByteBuffer.allocate(1024); // TODO: A real-world broker needs to handle buffer-splitting and larger packets
         int bytesRead = clientChannel.read(buffer);
         if (bytesRead == -1) {
             System.out.println("Connection close by: " + clientChannel.getRemoteAddress());
@@ -64,9 +64,9 @@ public class Broker implements AutoCloseable {
             key.cancel();
             return;
         }
-        System.out.println("Received message from " + clientChannel.getRemoteAddress());
         buffer.flip();
-        clientChannel.write(buffer);
+        System.out.println("Received message from " + clientChannel.getRemoteAddress());
+        buffer.clear();
     }
 
     private void acceptConnection(SelectionKey key) throws IOException {

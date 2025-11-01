@@ -2,6 +2,8 @@
 
 MQTT broker created for Design Patterns university class
 
+## Development plan can be found in [PLAN.md](PLAN.md)
+
 ## Prerequisites
 
 - Java 21 or higher
