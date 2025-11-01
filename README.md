@@ -16,13 +16,13 @@ To run the broker, execute the following command from the root directory of the 
 ### macOS / Linux
 
 ```sh
-./mvnw exec:java
+./mvnw clean compile exec:java
 ```
 
 ### Windows
 
 ```sh
-mvnw.cmd exec:java
+mvnw.cmd clean compile exec:java
 ```
 
 The broker will start and listen for connections on `localhost:1883`.
