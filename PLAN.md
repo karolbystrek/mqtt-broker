@@ -19,7 +19,7 @@ bytes; this phase will teach it to speak the language of MQTT connections.
         * Each packet consists of a Fixed Header, a Variable Header, and a Payload. Your models should reflect this
           structure.
 
-- [ ] **Step 2: Implement an MQTT Packet Decoder**
+- [x] **Step 2: Implement an MQTT Packet Decoder**
 
     * Replace your `echo` method with a new `handleRead(SelectionKey key)` method that reads bytes from the client.
         * This method's first job is to parse the **Fixed Header**. Read the first byte to identify the packet `type` (

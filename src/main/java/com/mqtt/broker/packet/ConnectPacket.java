@@ -1,4 +1,4 @@
-package com.mqtt.broker.packets;
+package com.mqtt.broker.packet;
 
 import com.mqtt.broker.MqttFixedHeader;
 import lombok.Getter;
@@ -11,7 +11,7 @@ public final class ConnectPacket extends MqttPacket {
     private final ConnectVariableHeader variableHeader;
     private final ConnectPayload payload;
 
-    ConnectPacket(MqttFixedHeader fixedHeader, ConnectVariableHeader variableHeader, ConnectPayload payload) {
+    public ConnectPacket(MqttFixedHeader fixedHeader, ConnectVariableHeader variableHeader, ConnectPayload payload) {
         super(fixedHeader);
         if (fixedHeader.packetType() != CONNECT) {
             throw new IllegalArgumentException("Invalid packet type for ConnectPacket: " + fixedHeader.packetType());
@@ -22,13 +22,13 @@ public final class ConnectPacket extends MqttPacket {
 
     public record ConnectVariableHeader(
             String protocolName,
-            int protocolLevel,
+            int protocolVersion,
             boolean cleanSession,
             boolean willFlag,
             int willQos,
             boolean willRetain,
-            boolean passwordFlag,
-            boolean usernameFlag,
+            boolean hasPassword,
+            boolean hasUsername,
             int keepAlive
     ) {
     }

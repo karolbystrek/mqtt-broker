@@ -1,9 +1,9 @@
-package com.mqtt.broker.packets;
+package com.mqtt.broker.packet;
 
 import com.mqtt.broker.MqttFixedHeader;
 
-import static com.mqtt.broker.InvalidPacketType.invalidPacketType;
 import static com.mqtt.broker.MqttControlPacketType.PINGRESP;
+import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 
 public final class PingRespPacket extends MqttPacket {
 

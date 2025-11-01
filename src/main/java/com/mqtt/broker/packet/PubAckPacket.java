@@ -1,10 +1,10 @@
-package com.mqtt.broker.packets;
+package com.mqtt.broker.packet;
 
 import com.mqtt.broker.MqttFixedHeader;
 import lombok.Getter;
 
-import static com.mqtt.broker.InvalidPacketType.invalidPacketType;
 import static com.mqtt.broker.MqttControlPacketType.PUBACK;
+import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 
 @Getter
 public final class PubAckPacket extends MqttPacket {

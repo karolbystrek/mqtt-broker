@@ -1,11 +1,11 @@
-package com.mqtt.broker.packets;
+package com.mqtt.broker.packet;
 
 import com.mqtt.broker.MqttFixedHeader;
 import com.mqtt.broker.MqttQoS;
 import lombok.Getter;
 
-import static com.mqtt.broker.InvalidPacketType.invalidPacketType;
 import static com.mqtt.broker.MqttControlPacketType.PUBLISH;
+import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 
 @Getter
 public final class PublishPacket extends MqttPacket {
@@ -14,7 +14,7 @@ public final class PublishPacket extends MqttPacket {
     private final byte[] payload; // payload is raw bytes as it can be anything
 
 
-    PublishPacket(MqttFixedHeader fixedHeader, PublishVariableHeader variableHeader, byte[] payload) {
+    public PublishPacket(MqttFixedHeader fixedHeader, PublishVariableHeader variableHeader, byte[] payload) {
         super(fixedHeader);
         if (fixedHeader.packetType() != PUBLISH) {
             throw invalidPacketType(PublishPacket.class);

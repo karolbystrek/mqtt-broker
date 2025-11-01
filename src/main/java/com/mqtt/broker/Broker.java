@@ -1,5 +1,9 @@
 package com.mqtt.broker;
 
+import com.mqtt.broker.decoder.MqttPacketDecoder;
+import com.mqtt.broker.packet.ConnectPacket;
+import com.mqtt.broker.packet.MqttPacket;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -7,6 +11,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 import static java.nio.channels.SelectionKey.OP_READ;
@@ -18,10 +24,15 @@ public class Broker implements AutoCloseable {
 
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
+    private final MqttPacketDecoder decoder;
+
+    private final Map<SocketChannel, ByteBuffer> clientBuffers;
 
     public Broker() throws IOException {
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector);
+        this.decoder = new MqttPacketDecoder();
+        this.clientBuffers = new ConcurrentHashMap<>();
     }
 
     public void start() {
@@ -38,10 +49,9 @@ public class Broker implements AutoCloseable {
                         } else if (key.isReadable()) {
                             handleRead(key);
                         }
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         System.err.println("Error handling client" + key + ": " + e.getMessage());
-                        key.cancel();
-                        key.channel().close();
+                        cleanupClient(key);
                     } finally {
                         keyIterator.remove();
                     }
@@ -56,17 +66,53 @@ public class Broker implements AutoCloseable {
 
     private void handleRead(SelectionKey key) throws IOException {
         var clientChannel = (SocketChannel) key.channel();
-        var buffer = ByteBuffer.allocate(1024); // TODO: A real-world broker needs to handle buffer-splitting and larger packets
+        var buffer = clientBuffers.get(clientChannel);
         int bytesRead = clientChannel.read(buffer);
         if (bytesRead == -1) {
             System.out.println("Connection close by: " + clientChannel.getRemoteAddress());
-            clientChannel.close();
-            key.cancel();
+            cleanupClient(key);
             return;
         }
-        buffer.flip();
-        System.out.println("Received message from " + clientChannel.getRemoteAddress());
-        buffer.clear();
+
+        buffer.flip(); // flip the buffer for reading
+
+        while (buffer.hasRemaining()) {
+            MqttPacket packet = decoder.decode(buffer);
+            if (packet == null) {
+                break; // incomplete packet, wait for more data
+            }
+
+            processPacket(packet, clientChannel);
+        }
+
+        buffer.compact(); // compact the buffer to preserve incomplete data
+    }
+
+    private void processPacket(MqttPacket packet, SocketChannel clientChannel) throws IOException {
+        System.out.println("Successfully decoded packet of type: " + packet.getFixedHeader().packetType() + " from " + clientChannel.getRemoteAddress());
+        // TODO: handle different packet types here
+        if (packet instanceof ConnectPacket connectPacket) {
+            System.out.println("Client connected with Client ID: " + connectPacket.getPayload().clientId());
+            sendConnAck(clientChannel, false, 0); // connection accepted
+        }
+    }
+
+    private void sendConnAck(SocketChannel clientChannel, boolean sessionPresent, int returnCode) throws IOException {
+        byte headerByte1 = 0x20; // CONNACK packet type
+        byte connAckFlags = sessionPresent ? (byte) 0x01 : (byte) 0x00;
+        byte remainingLength = 0x02;
+
+        var responseBuffer = ByteBuffer.allocate(4);
+        responseBuffer.put(headerByte1);
+        responseBuffer.put(remainingLength);
+        responseBuffer.put(connAckFlags);
+        responseBuffer.put((byte) returnCode);
+
+        responseBuffer.flip();
+        while (responseBuffer.hasRemaining()) {
+            clientChannel.write(responseBuffer);
+        }
+        System.out.println("Sent CONNACK to " + clientChannel.getRemoteAddress());
     }
 
     private void acceptConnection(SelectionKey key) throws IOException {
@@ -74,7 +120,22 @@ public class Broker implements AutoCloseable {
         var clientChannel = serverChannel.accept();
         clientChannel.configureBlocking(false);
         clientChannel.register(selector, OP_READ);
+
+        clientBuffers.put(clientChannel, ByteBuffer.allocate(8192));
+
         System.out.println("Accepted new connection from " + clientChannel.getRemoteAddress());
+    }
+
+    private void cleanupClient(SelectionKey key) {
+        var clientChannel = (SocketChannel) key.channel();
+        try {
+            key.cancel();
+            clientChannel.close();
+        } catch (IOException e) {
+            System.err.println("Error closing client channel: " + e.getMessage());
+        } finally {
+            clientBuffers.remove(clientChannel);
+        }
     }
 
     @Override

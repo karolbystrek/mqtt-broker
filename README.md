@@ -29,23 +29,27 @@ The broker will start and listen for connections on `localhost:1883`.
 
 ## Testing the Broker
 
-You can test the broker using a tool like `telnet`.
+You can test the broker using a tool like MQTTX, which is a cross-platform MQTT desktop client.
 
-1. Open a new terminal window.
-2. Connect to the broker:
-   ```sh
-   telnet localhost 1883
-   ```
-3. Once connected, you can type any message and press Enter. The broker will echo the message back to you.
+### Installing MQTTX
 
-Example:
+1. Download MQTTX from the official website: [https://mqttx.app/](https://mqttx.app/)
+2. Install the application on your operating system.
 
-```
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-Hello
-Hello
-```
+### Connecting to the Broker with MQTTX
 
-This confirms the broker is running and responding to connections.
+1. **Start the broker** by following the instructions in the "Running the Broker" section.
+2. **Open MQTTX**.
+3. Click on **"New Connection"**.
+4. Configure the connection with the following details:
+    - **Name**: `Local Broker` (or any name you prefer)
+    - **Host**: `localhost`
+    - **Port**: `1883`
+    - **MQTT Version**: Select `3.1.1` from the dropdown.
+    - All other settings can be left as default.
+5. Click **"Connect"**.
+
+If the connection is successful, you will see a "Connected" status in MQTTX. The broker terminal will also print a
+message indicating a new client has connected and that a `CONNACK` packet has been sent.
+
+This confirms that the broker is correctly handling the MQTT `CONNECT` packet and establishing a connection.

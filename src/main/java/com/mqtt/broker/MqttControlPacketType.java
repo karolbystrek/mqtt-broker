@@ -23,7 +23,8 @@ public enum MqttControlPacketType {
     UNSUBACK(11), // Unsubscribe Acknowledgment
     PINGREQ(12), // PING Request
     PINGRESP(13), // PING Response
-    DISCONNECT(14); // Client is disconnecting
+    DISCONNECT(14), // Client is disconnecting
+    UNKNOWN(0); // Unsupported or unknown packet type
 
     private final int value;
 
@@ -35,11 +36,12 @@ public enum MqttControlPacketType {
         this.value = value;
     }
 
+    public static MqttControlPacketType fromHeaderByte(byte headerByte) {
+        int value = (headerByte >> 4) & 0x0F;
+        return fromInt(value);
+    }
+
     public static MqttControlPacketType fromInt(int value) {
-        MqttControlPacketType type = valueToTypeMap.get(value);
-        if (type == null) {
-            throw new IllegalArgumentException("Invalid MQTT Control Packet Type value: " + value);
-        }
-        return type;
+        return valueToTypeMap.getOrDefault(value, UNKNOWN);
     }
 }

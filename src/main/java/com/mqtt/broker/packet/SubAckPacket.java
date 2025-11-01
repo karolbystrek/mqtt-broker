@@ -1,12 +1,12 @@
-package com.mqtt.broker.packets;
+package com.mqtt.broker.packet;
 
 import com.mqtt.broker.MqttFixedHeader;
 import lombok.Getter;
 
 import java.util.List;
 
-import static com.mqtt.broker.InvalidPacketType.invalidPacketType;
 import static com.mqtt.broker.MqttControlPacketType.SUBACK;
+import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static java.util.List.copyOf;
 
 @Getter
