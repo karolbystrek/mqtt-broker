@@ -1,6 +1,7 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.decoder.MqttPacketDecoder;
+import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
 import com.mqtt.broker.packet.MqttPacket;
 
@@ -25,6 +26,8 @@ public class Broker implements AutoCloseable {
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder decoder;
+    private final MqttPacketEncoder encoder;
+    private final Map<String, Session> sessions;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
 
@@ -32,7 +35,9 @@ public class Broker implements AutoCloseable {
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector);
         this.decoder = new MqttPacketDecoder();
-        this.handlerFactory = new PacketHandlerFactory();
+        this.encoder = new MqttPacketEncoder();
+        this.sessions = new ConcurrentHashMap<>();
+        this.handlerFactory = new PacketHandlerFactory(encoder, sessions);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -94,8 +99,6 @@ public class Broker implements AutoCloseable {
     }
 
     private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        System.out.println("Successfully decoded packet of type: " + packet.getFixedHeader().packetType() + " from " + clientChannel.getRemoteAddress());
-
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
         handler.handle(clientChannel, packet);
     }

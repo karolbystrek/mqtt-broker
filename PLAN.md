@@ -38,7 +38,7 @@ bytes; this phase will teach it to speak the language of MQTT connections.
     * Parse the payload to get the `ClientID`.
     * **Validation:** Perform initial checks. The protocol name must be "MQTT" and the version should be 4 (for MQTT
       v3.1.1). If these fail, the connection must be rejected.
-- [ ] **Step 4: Send the CONNACK Packet and Manage Sessions**
+- [x] **Step 4: Send the CONNACK Packet and Manage Sessions**
     * Implement logic to create and send a `CONNACK` (Connection Acknowledgment) packet back to the client. If the
       `CONNECT` packet was valid, send a `CONNACK` with a "Connection Accepted" (0x00) return code. Otherwise, send the
       appropriate error code (e.g., "unacceptable protocol version" - 0x01).

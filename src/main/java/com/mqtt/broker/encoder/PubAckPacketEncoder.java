@@ -9,12 +9,13 @@ import static java.nio.ByteBuffer.allocate;
 public interface PubAckPacketEncoder extends MqttPacketEncoderInterface {
 
     default ByteBuffer encodePubAck(PubAckPacket packet) {
-        var buffer = allocate(4);
-        var fixedHeader = encodeFixedHeader(packet.getFixedHeader());
-        buffer.put(fixedHeader);
+        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
 
-        buffer.putShort((short) packet.getPacketIdentifier());
-        buffer.flip();
-        return buffer;
+        var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
+
+        fullPacket.put(fixedHeaderBuffer);
+        fullPacket.putShort((short) packet.getPacketIdentifier());
+
+        return fullPacket;
     }
 }
