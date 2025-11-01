@@ -1,12 +1,10 @@
 package com.mqtt.broker.packet;
 
-import com.mqtt.broker.MqttFixedHeader;
-import com.mqtt.broker.MqttQoS;
 import lombok.Getter;
 
 import java.util.List;
 
-import static com.mqtt.broker.MqttControlPacketType.SUBSCRIBE;
+import static com.mqtt.broker.packet.MqttControlPacketType.SUBSCRIBE;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 
 @Getter

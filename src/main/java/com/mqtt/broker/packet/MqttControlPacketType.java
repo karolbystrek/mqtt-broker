@@ -1,4 +1,4 @@
-package com.mqtt.broker;
+package com.mqtt.broker.packet;
 
 import lombok.Getter;
 

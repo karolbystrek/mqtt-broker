@@ -1,7 +1,7 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.decoder.MqttPacketDecoder;
-import com.mqtt.broker.packet.ConnectPacket;
+import com.mqtt.broker.handler.PacketHandlerFactory;
 import com.mqtt.broker.packet.MqttPacket;
 
 import java.io.IOException;
@@ -25,13 +25,14 @@ public class Broker implements AutoCloseable {
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder decoder;
-
+    private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
 
     public Broker() throws IOException {
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector);
         this.decoder = new MqttPacketDecoder();
+        this.handlerFactory = new PacketHandlerFactory();
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -67,6 +68,9 @@ public class Broker implements AutoCloseable {
     private void handleRead(SelectionKey key) throws IOException {
         var clientChannel = (SocketChannel) key.channel();
         var buffer = clientBuffers.get(clientChannel);
+        if (buffer == null) {
+            return;
+        }
         int bytesRead = clientChannel.read(buffer);
         if (bytesRead == -1) {
             System.out.println("Connection close by: " + clientChannel.getRemoteAddress());
@@ -79,40 +83,21 @@ public class Broker implements AutoCloseable {
         while (buffer.hasRemaining()) {
             MqttPacket packet = decoder.decode(buffer);
             if (packet == null) {
-                break; // incomplete packet, wait for more data
+                buffer.reset(); // incomplete packet, wait for more data
+                break;
             }
 
-            processPacket(packet, clientChannel);
+            processPacket(clientChannel, packet);
         }
 
         buffer.compact(); // compact the buffer to preserve incomplete data
     }
 
-    private void processPacket(MqttPacket packet, SocketChannel clientChannel) throws IOException {
+    private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         System.out.println("Successfully decoded packet of type: " + packet.getFixedHeader().packetType() + " from " + clientChannel.getRemoteAddress());
-        // TODO: handle different packet types here
-        if (packet instanceof ConnectPacket connectPacket) {
-            System.out.println("Client connected with Client ID: " + connectPacket.getPayload().clientId());
-            sendConnAck(clientChannel, false, 0); // connection accepted
-        }
-    }
 
-    private void sendConnAck(SocketChannel clientChannel, boolean sessionPresent, int returnCode) throws IOException {
-        byte headerByte1 = 0x20; // CONNACK packet type
-        byte connAckFlags = sessionPresent ? (byte) 0x01 : (byte) 0x00;
-        byte remainingLength = 0x02;
-
-        var responseBuffer = ByteBuffer.allocate(4);
-        responseBuffer.put(headerByte1);
-        responseBuffer.put(remainingLength);
-        responseBuffer.put(connAckFlags);
-        responseBuffer.put((byte) returnCode);
-
-        responseBuffer.flip();
-        while (responseBuffer.hasRemaining()) {
-            clientChannel.write(responseBuffer);
-        }
-        System.out.println("Sent CONNACK to " + clientChannel.getRemoteAddress());
+        var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
+        handler.handle(clientChannel, packet);
     }
 
     private void acceptConnection(SelectionKey key) throws IOException {

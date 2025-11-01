@@ -1,6 +1,6 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.MqttFixedHeader;
+import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PubAckPacket;
 
 import java.nio.ByteBuffer;

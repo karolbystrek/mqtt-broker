@@ -1,7 +1,7 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.MqttControlPacketType;
-import com.mqtt.broker.MqttFixedHeader;
+import com.mqtt.broker.packet.MqttControlPacketType;
+import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PingReqPacket;

@@ -1,6 +1,6 @@
 package com.mqtt.broker.exception;
 
-import com.mqtt.broker.MqttControlPacketType;
+import com.mqtt.broker.packet.MqttControlPacketType;
 
 public class UnsupportedPacketTypeException extends RuntimeException {
     public UnsupportedPacketTypeException(String message) {

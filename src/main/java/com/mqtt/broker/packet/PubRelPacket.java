@@ -1,9 +1,8 @@
 package com.mqtt.broker.packet;
 
-import com.mqtt.broker.MqttFixedHeader;
 import lombok.Getter;
 
-import static com.mqtt.broker.MqttControlPacketType.PUBREL;
+import static com.mqtt.broker.packet.MqttControlPacketType.PUBREL;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 
 @Getter

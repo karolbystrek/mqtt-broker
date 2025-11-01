@@ -31,7 +31,7 @@ bytes; this phase will teach it to speak the language of MQTT connections.
       MQTT
       message.
 
-- [ ] **Step 3: Handle the CONNECT Packet**
+- [x] **Step 3: Handle the CONNECT Packet**
     * Create a specific handler for the `CONNECT` packet. When your decoder identifies a `CONNECT` packet, it should
       pass the data to this handler.
     * Parse the variable header to get the protocol name, protocol version, connect flags, and Keep Alive interval.

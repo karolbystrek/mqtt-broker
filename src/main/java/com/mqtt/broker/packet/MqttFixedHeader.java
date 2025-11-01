@@ -1,4 +1,4 @@
-package com.mqtt.broker;
+package com.mqtt.broker.packet;
 
 /**
  * Represents the Fixed Header present in all MQTT Control Packets.

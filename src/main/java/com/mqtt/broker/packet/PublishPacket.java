@@ -1,11 +1,13 @@
 package com.mqtt.broker.packet;
 
-import com.mqtt.broker.MqttFixedHeader;
-import com.mqtt.broker.MqttQoS;
 import lombok.Getter;
 
-import static com.mqtt.broker.MqttControlPacketType.PUBLISH;
+import java.util.Optional;
+
+import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 
 @Getter
 public final class PublishPacket extends MqttPacket {
@@ -19,14 +21,14 @@ public final class PublishPacket extends MqttPacket {
         if (fixedHeader.packetType() != PUBLISH) {
             throw invalidPacketType(PublishPacket.class);
         }
+        if (variableHeader.topicName == null || variableHeader.topicName.isEmpty()) {
+            throw new IllegalArgumentException("Topic name cannot be null or empty");
+        }
+        if (getQosLevel().requiresPacketId() && variableHeader.packetIdentifier <= 0) {
+            throw new IllegalArgumentException("Packet Identifier must be greater than 0 for QoS levels 1 and 2");
+        }
         this.variableHeader = variableHeader;
-        this.payload = payload;
-    }
-
-    public record PublishVariableHeader(
-            String topicName,
-            int packetIdentifier // Optional, only present for QoS levels 1 and 2
-    ) {
+        this.payload = payload != null ? payload.clone() : new byte[0];
     }
 
     public boolean isDup() {
@@ -40,5 +42,18 @@ public final class PublishPacket extends MqttPacket {
 
     public boolean isRetain() {
         return (getFixedHeader().flags() & 0b0000_0001) != 0;
+    }
+
+    public Optional<Integer> getPacketIdentifier() {
+        if (getQosLevel().requiresPacketId()) {
+            return of(variableHeader.packetIdentifier);
+        }
+        return empty();
+    }
+
+    public record PublishVariableHeader(
+            String topicName,
+            int packetIdentifier // Optional, only present for QoS levels 1 and 2
+    ) {
     }
 }
