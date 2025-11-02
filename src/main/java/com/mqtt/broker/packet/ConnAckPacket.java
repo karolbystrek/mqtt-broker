@@ -2,8 +2,8 @@ package com.mqtt.broker.packet;
 
 import lombok.Getter;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
+import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
 
 @Getter
 public final class ConnAckPacket extends MqttPacket {

@@ -27,7 +27,8 @@ public class Broker implements AutoCloseable {
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder decoder;
     private final MqttPacketEncoder encoder;
-    private final Map<String, Session> sessions;
+    private final Map<SocketChannel, Session> activeSessions;
+    private final Map<String, Session> persistentSessions;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
 
@@ -36,8 +37,9 @@ public class Broker implements AutoCloseable {
         this.serverChannel = setupServer(selector);
         this.decoder = new MqttPacketDecoder();
         this.encoder = new MqttPacketEncoder();
-        this.sessions = new ConcurrentHashMap<>();
-        this.handlerFactory = new PacketHandlerFactory(encoder, sessions);
+        this.activeSessions = new ConcurrentHashMap<>();
+        this.persistentSessions = new ConcurrentHashMap<>();
+        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -86,13 +88,13 @@ public class Broker implements AutoCloseable {
         buffer.flip(); // flip the buffer for reading
 
         while (buffer.hasRemaining()) {
-            MqttPacket packet = decoder.decode(buffer);
-            if (packet == null) {
+            var optionalPacket = decoder.decode(buffer);
+            if (optionalPacket.isEmpty()) {
                 buffer.reset(); // incomplete packet, wait for more data
                 break;
             }
 
-            processPacket(clientChannel, packet);
+            processPacket(clientChannel, optionalPacket.get());
         }
 
         buffer.compact(); // compact the buffer to preserve incomplete data
@@ -100,7 +102,16 @@ public class Broker implements AutoCloseable {
 
     private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
-        handler.handle(clientChannel, packet);
+        var optionalResponsePacket = handler.handle(clientChannel, packet);
+
+        if (optionalResponsePacket.isPresent()) {
+            var responseBuffer = encoder.encode(optionalResponsePacket.get());
+            responseBuffer.flip();
+
+            while (responseBuffer.hasRemaining()) {
+                clientChannel.write(responseBuffer);
+            }
+        }
     }
 
     private void acceptConnection(SelectionKey key) throws IOException {
@@ -116,6 +127,13 @@ public class Broker implements AutoCloseable {
 
     private void cleanupClient(SelectionKey key) {
         var clientChannel = (SocketChannel) key.channel();
+
+        Session session = activeSessions.get(clientChannel);
+        if (session != null && !session.isCleanSession()) {
+            persistentSessions.put(session.getClientId(), session);
+            System.out.println("Saved persistent session for client: " + session.getClientId());
+        }
+
         try {
             key.cancel();
             clientChannel.close();
@@ -123,6 +141,7 @@ public class Broker implements AutoCloseable {
             System.err.println("Error closing client channel: " + e.getMessage());
         } finally {
             clientBuffers.remove(clientChannel);
+            activeSessions.remove(clientChannel);
         }
     }
 

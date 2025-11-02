@@ -1,10 +1,12 @@
 package com.mqtt.broker.packet;
 
 import lombok.Getter;
+import lombok.ToString;
 
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNECT;
 
 @Getter
+@ToString
 public final class ConnectPacket extends MqttPacket {
 
     private final ConnectVariableHeader variableHeader;

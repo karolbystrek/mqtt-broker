@@ -1,27 +1,29 @@
 package com.mqtt.broker;
 
-import java.util.Set;
+import com.mqtt.broker.packet.MqttQoS;
+import lombok.Getter;
+
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static java.util.Collections.newSetFromMap;
-
+@Getter
 public class Session {
 
     private final String clientId;
-    private final Set<String> subscriptions;
+    private final Map<String, MqttQoS> subscriptions;
     private final boolean cleanSession;
 
     public Session(String clientId, boolean cleanSession) {
         this.clientId = clientId;
-        this.subscriptions = newSetFromMap(new ConcurrentHashMap<>());
+        this.subscriptions = new ConcurrentHashMap<>();
         this.cleanSession = cleanSession;
     }
 
-    public void AddSubscription(String topic) {
-        subscriptions.add(topic);
+    public void addSubscription(String topicFilter, MqttQoS qos) {
+        subscriptions.put(topicFilter, qos);
     }
 
-    public void RemoveSubscription(String topic) {
-        subscriptions.remove(topic);
+    public void removeSubscription(String topicFilter) {
+        subscriptions.remove(topicFilter);
     }
 }

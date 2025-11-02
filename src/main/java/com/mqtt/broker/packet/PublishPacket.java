@@ -1,15 +1,17 @@
 package com.mqtt.broker.packet;
 
 import lombok.Getter;
+import lombok.ToString;
 
 import java.util.Optional;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
+import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
 @Getter
+@ToString
 public final class PublishPacket extends MqttPacket {
 
     private final PublishVariableHeader variableHeader;

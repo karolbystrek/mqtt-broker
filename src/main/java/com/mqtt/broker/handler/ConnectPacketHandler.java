@@ -1,7 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.Session;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
@@ -12,8 +11,11 @@ import lombok.RequiredArgsConstructor;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 
 @RequiredArgsConstructor
 public class ConnectPacketHandler implements MqttPacketHandler {
@@ -21,50 +23,52 @@ public class ConnectPacketHandler implements MqttPacketHandler {
     private static final int MQTT_3_1_1_VERSION = 4;
     private static final String MQTT_PROTOCOL_NAME = "MQTT";
 
-    private final MqttPacketEncoder encoder;
-    private final Map<String, Session> sessions;
+    private final Map<SocketChannel, Session> activeSessions;
+    private final Map<String, Session> persistentSessions;
 
     @Override
-    public void handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof ConnectPacket connectPacket)) {
-            return;
+            return empty();
         }
-        System.out.println("Received CONNECT packet from client: " + clientChannel.getRemoteAddress());
+
+        System.out.println("Received CONNECT packet: " + connectPacket);
 
         var variableHeader = connectPacket.getVariableHeader();
 
         if (!variableHeader.protocolName().equals(MQTT_PROTOCOL_NAME) || variableHeader.protocolVersion() != MQTT_3_1_1_VERSION) {
-            sendConnAck(clientChannel, (byte) 0, 1); // Connection Refused, unacceptable protocol version
             System.out.println("Connection refused for " + clientChannel.getRemoteAddress() + ": Unsupported protocol");
             clientChannel.close();
-            return;
+            return of(createConnAckPacket((byte) 0, 1)); // Connection Refused, unacceptable protocol version
         }
 
         String clientId = connectPacket.getPayload().clientId();
         boolean cleanSessionFlag = variableHeader.cleanSession();
         byte sessionPresentFlag = 0;
+        Session session;
+
         if (cleanSessionFlag) {
-            sessions.remove(clientId);
-        } else if (sessions.containsKey(clientId)) {
-            sessionPresentFlag = 1;
+            // Clean session: create new session and discard any persistent session
+            persistentSessions.remove(clientId);
+            session = new Session(clientId, true);
+        } else {
+            // Persistent session: restore if exists, otherwise create new
+            session = persistentSessions.remove(clientId);
+            if (session != null) {
+                System.out.println("Restored persistent session for client: " + clientId);
+                sessionPresentFlag = 1;
+            } else {
+                session = new Session(clientId, false);
+            }
         }
 
-        var session = new Session(clientId, cleanSessionFlag);
-        sessions.put(clientId, session);
-
-        System.out.println("Client connected with Client ID: " + clientId);
-
-        sendConnAck(clientChannel, sessionPresentFlag, 0);
+        activeSessions.put(clientChannel, session);
+        System.out.println("Client " + clientId + " connected");
+        return of(createConnAckPacket(sessionPresentFlag, 0));
     }
 
-    private void sendConnAck(SocketChannel clientChannel, byte sessionPresent, int returnCode) throws IOException {
+    private ConnAckPacket createConnAckPacket(byte sessionPresent, int returnCode) {
         var connAckHeader = new ConnAckVariableHeader(sessionPresent, returnCode);
-        var connAckPacket = new ConnAckPacket(new MqttFixedHeader(CONNACK, (byte) 0, 2), connAckHeader);
-
-        var responseBuffer = encoder.encode(connAckPacket);
-        responseBuffer.flip();
-        while (responseBuffer.hasRemaining()) {
-            clientChannel.write(responseBuffer);
-        }
+        return new ConnAckPacket(new MqttFixedHeader(CONNACK, (byte) 0, 2), connAckHeader);
     }
 }

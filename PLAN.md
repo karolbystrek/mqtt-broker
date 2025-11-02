@@ -53,7 +53,7 @@ At the end of this phase, your broker will be able to accept a connection from a
 This phase implements the primary purpose of an MQTT broker: receiving messages and fanning them out to interested
 subscribers.
 
-- [ ] **Step 5: Handle Subscriptions (SUBSCRIBE \& SUBACK)**
+- [x] **Step 5: Handle Subscriptions (SUBSCRIBE \& SUBACK)**
     * Implement a handler for the `SUBSCRIBE` packet.
     * Parse its payload to extract the list of topic filters the client is requesting.
     * Store these topic filters inside the client's `Session` object.

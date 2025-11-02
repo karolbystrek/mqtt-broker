@@ -1,52 +1,40 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
+import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
-import lombok.RequiredArgsConstructor;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.channels.SocketChannel;
+import java.util.Optional;
 
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
-import static com.mqtt.broker.packet.MqttQoS.AT_LEAST_ONCE;
+import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
+import static java.util.Optional.empty;
 
-@RequiredArgsConstructor
 public class PublishPacketHandler implements MqttPacketHandler {
 
-    private final MqttPacketEncoder encoder;
-
     @Override
-    public void handle(SocketChannel clientChannel, MqttPacket packet) {
+    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) {
         if (!(packet instanceof PublishPacket publishPacket)) {
-            return;
+            return empty();
         }
 
-        System.out.println("Handling PUBLISH packet for topic: " + publishPacket.getVariableHeader().topicName());
+        System.out.println("Handling PUBLISH packet: " + publishPacket);
 
-        publishPacket.getPacketIdentifier().ifPresent(packetId -> {
-            try {
-                if (publishPacket.getQosLevel() == AT_LEAST_ONCE) {
-                    sendPubAck(clientChannel, packetId);
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
-    }
-
-    private void sendPubAck(SocketChannel clientChannel, int packetId) throws IOException {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(PUBACK, (byte) 0, 2);
-        PubAckPacket pubAckPacket = new PubAckPacket(fixedHeader, packetId);
-
-        var responseBuffer = encoder.encode(pubAckPacket);
-        responseBuffer.flip();
-        while (responseBuffer.hasRemaining()) {
-            clientChannel.write(responseBuffer);
-        }
-        System.out.println("Sent PUBACK for Packet ID: " + packetId);
+        return switch (publishPacket.getQosLevel()) {
+            case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()
+                    .map(packetId -> {
+                        var fixedHeader = new MqttFixedHeader(PUBACK, (byte) 0, 2);
+                        return new PubAckPacket(fixedHeader, packetId);
+                    });
+            case EXACTLY_ONCE -> publishPacket.getPacketIdentifier()
+                    .map(packetId -> {
+                        var fixedHeader = new MqttFixedHeader(PUBREC, (byte) 0, 2);
+                        return new PubRecPacket(fixedHeader, packetId);
+                    });
+            default -> empty(); // QoS 0 requires no response
+        };
     }
 }
