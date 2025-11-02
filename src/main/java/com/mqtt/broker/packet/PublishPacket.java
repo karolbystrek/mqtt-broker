@@ -5,6 +5,7 @@ import lombok.ToString;
 
 import java.util.Optional;
 
+import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static java.util.Optional.empty;
@@ -28,6 +29,9 @@ public final class PublishPacket extends MqttPacket {
         }
         if (getQosLevel().requiresPacketId() && variableHeader.packetIdentifier <= 0) {
             throw new IllegalArgumentException("Packet Identifier must be greater than 0 for QoS levels 1 and 2");
+        }
+        if (variableHeader.packetIdentifier() < 0 || variableHeader.packetIdentifier() > 65535) {
+            throw invalidPacketIdentifier();
         }
         this.variableHeader = variableHeader;
         this.payload = payload != null ? payload.clone() : new byte[0];

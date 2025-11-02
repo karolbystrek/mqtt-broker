@@ -5,6 +5,7 @@ import lombok.ToString;
 
 import java.util.List;
 
+import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBSCRIBE;
 
@@ -19,6 +20,9 @@ public final class SubscribePacket extends MqttPacket {
         super(fixedHeader);
         if (fixedHeader.packetType() != SUBSCRIBE) {
             throw invalidPacketType(SubscribePacket.class);
+        }
+        if (packetIdentifier < 0 || packetIdentifier > 65535) {
+            throw invalidPacketIdentifier();
         }
         this.packetIdentifier = packetIdentifier;
         this.subscriptions = subscriptions;

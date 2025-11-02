@@ -5,6 +5,7 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
+import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ import static java.util.Optional.of;
 public class SubscribePacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
+    private final TopicTree topicTree;
 
     @Override
     public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
@@ -33,16 +35,14 @@ public class SubscribePacketHandler implements MqttPacketHandler {
         Session session = activeSessions.get(clientChannel);
         if (session == null) {
             System.err.println("No session found for channel: " + clientChannel.getRemoteAddress());
-            throw new IllegalStateException("Session not found for channel");
+            return empty();
         }
 
         List<Integer> grantedQosLevels = subscribePacket.getSubscriptions().stream()
                 .map(subscription -> {
                     session.addSubscription(subscription.topicFilter(), subscription.qos());
+                    topicTree.subscribe(subscription.topicFilter(), session.getClientId());
 
-                    System.out.println("Client " + session.getClientId() + " subscribed to topic: "
-                            + subscription.topicFilter() + " with QoS: " + subscription.qos());
-                    
                     return subscription.qos().getValue();
                 })
                 .toList();

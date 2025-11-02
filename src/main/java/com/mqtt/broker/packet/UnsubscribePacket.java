@@ -1,14 +1,16 @@
 package com.mqtt.broker.packet;
 
 import lombok.Getter;
+import lombok.ToString;
 
 import java.util.List;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBSCRIBE;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
+import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBSCRIBE;
 import static java.util.List.copyOf;
 
 @Getter
+@ToString
 public final class UnsubscribePacket extends MqttPacket {
 
     private final int packetIdentifier;
@@ -17,6 +19,9 @@ public final class UnsubscribePacket extends MqttPacket {
     public UnsubscribePacket(MqttFixedHeader fixedHeader, int packetIdentifier, List<String> topicFilters) {
         super(fixedHeader);
         if (fixedHeader.packetType() != UNSUBSCRIBE) {
+            throw invalidPacketType(UnsubscribePacket.class);
+        }
+        if (fixedHeader.flags() != 0b0010) {
             throw invalidPacketType(UnsubscribePacket.class);
         }
         this.packetIdentifier = packetIdentifier;

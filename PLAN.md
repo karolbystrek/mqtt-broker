@@ -59,7 +59,7 @@ subscribers.
     * Store these topic filters inside the client's `Session` object.
     * Send a `SUBACK` packet back to the client to acknowledge the subscription and confirm the granted Quality of
       Service (QoS) levels for each topic.
-- [ ] **Step 6: Implement Topic Matching Logic**
+- [x] **Step 6: Implement Topic Matching Logic**
     * Create a central subscription manager that holds all subscriptions from all active sessions.
     * Write a function that can take a topic name (from a `PUBLISH` packet) and efficiently find all clients whose topic
       filters match it. This logic must correctly handle MQTT wildcards:

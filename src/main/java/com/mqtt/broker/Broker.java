@@ -4,6 +4,7 @@ import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.trie.TopicTree;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -29,6 +30,7 @@ public class Broker implements AutoCloseable {
     private final MqttPacketEncoder encoder;
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, Session> persistentSessions;
+    private final TopicTree topicTree;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
 
@@ -39,7 +41,8 @@ public class Broker implements AutoCloseable {
         this.encoder = new MqttPacketEncoder();
         this.activeSessions = new ConcurrentHashMap<>();
         this.persistentSessions = new ConcurrentHashMap<>();
-        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions);
+        this.topicTree = new TopicTree();
+        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
