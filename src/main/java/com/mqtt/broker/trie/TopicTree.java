@@ -16,7 +16,7 @@ public class TopicTree {
     private static final String MULTI_LEVEL_WILDCARD = "#";
     private static final String TOPIC_LEVEL_SEPARATOR = "/";
 
-    public void subscribe(String topic, String clientId) {
+    public void subscribeTo(String topic, String clientId) {
         requireNonNull(clientId, "Client ID cannot be null");
         validateTopicFilter(topic);
 
@@ -30,7 +30,7 @@ public class TopicTree {
         currentNode.getSubscribers().add(clientId);
     }
 
-    public void unsubscribe(String topic, String clientId) {
+    public void unsubscribeFrom(String topic, String clientId) {
         requireNonNull(clientId, "Client ID cannot be null");
         validateTopicFilter(topic);
 
@@ -47,7 +47,19 @@ public class TopicTree {
         currentNode.getSubscribers().remove(clientId);
     }
 
-    public Set<String> getSubscribers(String topic) {
+    public void removeAllSubscriptionsFor(String clientId) {
+        requireNonNull(clientId, "Client ID cannot be null");
+        removeClientFromNode(root, clientId);
+    }
+
+    private void removeClientFromNode(TrieNode node, String clientId) {
+        node.getSubscribers().remove(clientId);
+
+        node.getChildren().values()
+                .forEach(childNode -> removeClientFromNode(childNode, clientId));
+    }
+
+    public Set<String> getSubscribersFor(String topic) {
         requireNonNull(topic, "Topic cannot be null");
 
         if (topic.isEmpty()) {

@@ -65,7 +65,7 @@ subscribers.
       filters match it. This logic must correctly handle MQTT wildcards:
         * `+` (single-level wildcard)
         * `#` (multi-level wildcard)
-- [ ] **Step 7: Handle Publishing (PUBLISH - QoS 0)**
+- [x] **Step 7: Handle Publishing (PUBLISH - QoS 0)**
     * Implement a handler for the `PUBLISH` packet. Start by supporting only **QoS 0** ("at most once"), which is the
       simplest fire-and-forget level.
     * When a QoS 0 `PUBLISH` packet arrives, parse its topic name and payload.

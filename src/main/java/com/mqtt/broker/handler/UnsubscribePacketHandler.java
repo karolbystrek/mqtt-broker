@@ -39,7 +39,7 @@ public class UnsubscribePacketHandler implements MqttPacketHandler {
 
         unsubscribePacket.getTopicFilters().forEach(topicFilter -> {
             clientSession.removeSubscription(topicFilter);
-            topicTree.unsubscribe(topicFilter, clientSession.getClientId());
+            topicTree.unsubscribeFrom(topicFilter, clientSession.getClientId());
         });
 
         var unsubAckFixedHeader = new MqttFixedHeader(UNSUBACK, (byte) 0, 2);

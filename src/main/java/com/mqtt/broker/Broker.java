@@ -29,6 +29,7 @@ public class Broker implements AutoCloseable {
     private final MqttPacketDecoder decoder;
     private final MqttPacketEncoder encoder;
     private final Map<SocketChannel, Session> activeSessions;
+    private final Map<String, SocketChannel> clientIdToChannel;
     private final Map<String, Session> persistentSessions;
     private final TopicTree topicTree;
     private final PacketHandlerFactory handlerFactory;
@@ -40,9 +41,10 @@ public class Broker implements AutoCloseable {
         this.decoder = new MqttPacketDecoder();
         this.encoder = new MqttPacketEncoder();
         this.activeSessions = new ConcurrentHashMap<>();
+        this.clientIdToChannel = new ConcurrentHashMap<>();
         this.persistentSessions = new ConcurrentHashMap<>();
         this.topicTree = new TopicTree();
-        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree);
+        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree, clientIdToChannel);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -132,9 +134,14 @@ public class Broker implements AutoCloseable {
         var clientChannel = (SocketChannel) key.channel();
 
         Session session = activeSessions.get(clientChannel);
-        if (session != null && !session.isCleanSession()) {
-            persistentSessions.put(session.getClientId(), session);
-            System.out.println("Saved persistent session for client: " + session.getClientId());
+        if (session != null) {
+            if (session.isCleanSession()) {
+                topicTree.removeAllSubscriptionsFor(session.getClientId());
+            } else {
+                persistentSessions.put(session.getClientId(), session);
+                System.out.println("Saved persistent session for client: " + session.getClientId());
+            }
+            clientIdToChannel.remove(session.getClientId());
         }
 
         try {

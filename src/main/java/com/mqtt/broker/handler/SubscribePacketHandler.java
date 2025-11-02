@@ -41,7 +41,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
         List<Integer> grantedQosLevels = subscribePacket.getSubscriptions().stream()
                 .map(subscription -> {
                     session.addSubscription(subscription.topicFilter(), subscription.qos());
-                    topicTree.subscribe(subscription.topicFilter(), session.getClientId());
+                    topicTree.subscribeTo(subscription.topicFilter(), session.getClientId());
 
                     return subscription.qos().getValue();
                 })

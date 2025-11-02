@@ -23,16 +23,17 @@ public class PacketHandlerFactory {
 
     public PacketHandlerFactory(Map<SocketChannel, Session> activeSessions,
                                 Map<String, Session> persistentSessions,
-                                TopicTree topicTree) {
+                                TopicTree topicTree,
+                                Map<String, SocketChannel> clientIdToChannel) {
         this.handlers = new EnumMap<>(MqttControlPacketType.class);
 
-        handlers.put(CONNECT, new ConnectPacketHandler(activeSessions, persistentSessions));
+        handlers.put(CONNECT, new ConnectPacketHandler(activeSessions, persistentSessions, clientIdToChannel, topicTree));
         handlers.put(PINGREQ, new PingReqPacketHandler());
-        handlers.put(PUBLISH, new PublishPacketHandler());
+        handlers.put(PUBLISH, new PublishPacketHandler(topicTree, clientIdToChannel));
         handlers.put(PUBREL, new PubRelPacketHandler());
         handlers.put(SUBSCRIBE, new SubscribePacketHandler(activeSessions, topicTree));
         handlers.put(UNSUBSCRIBE, new UnsubscribePacketHandler(activeSessions, topicTree));
-        handlers.put(DISCONNECT, new DisconnectPacketHandler(activeSessions, persistentSessions));
+        handlers.put(DISCONNECT, new DisconnectPacketHandler(activeSessions, persistentSessions, topicTree, clientIdToChannel));
         // TODO: Register all supported packet handlers
     }
 

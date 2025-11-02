@@ -6,6 +6,7 @@ import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
@@ -25,10 +26,19 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, Session> persistentSessions;
+    private final Map<String, SocketChannel> clientIdToChannel;
+    private final TopicTree topicTree;
 
     @Override
     public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof ConnectPacket connectPacket)) {
+            return empty();
+        }
+
+        // Check for protocol violation: multiple CONNECT packets from the same client
+        if (activeSessions.containsKey(clientChannel)) {
+            System.err.println("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
+            clientChannel.close();
             return empty();
         }
 
@@ -48,8 +58,11 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         Session session;
 
         if (cleanSessionFlag) {
-            // Clean session: create new session and discard any persistent session
-            persistentSessions.remove(clientId);
+            Session oldPersistentSession = persistentSessions.remove(clientId);
+            if (oldPersistentSession != null) {
+                topicTree.removeAllSubscriptionsFor(clientId);
+                System.out.println("Removed old persistent session and subscriptions for client: " + clientId);
+            }
             session = new Session(clientId, true);
         } else {
             // Persistent session: restore if exists, otherwise create new
@@ -63,6 +76,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         activeSessions.put(clientChannel, session);
+        clientIdToChannel.put(clientId, clientChannel);
         System.out.println("Client " + clientId + " connected");
         return of(createConnAckPacket(sessionPresentFlag, 0));
     }

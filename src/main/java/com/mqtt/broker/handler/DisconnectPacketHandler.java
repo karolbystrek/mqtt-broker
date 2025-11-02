@@ -3,6 +3,7 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
@@ -17,6 +18,8 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, Session> persistentSessions;
+    private final TopicTree topicTree;
+    private final Map<String, SocketChannel> clientIdToChannel;
 
     @Override
     public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
@@ -35,12 +38,16 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
 
         // TODO: Discard any Will Message associated with the connection (MQTT-3.14.4-3)
 
-        if (!session.isCleanSession()) {
+        if (session.isCleanSession()) {
+            topicTree.removeAllSubscriptionsFor(session.getClientId());
+            System.out.println("Removed all subscriptions for clean session client: " + session.getClientId());
+        } else {
             persistentSessions.put(session.getClientId(), session);
             System.out.println("Saved persistent session for client: " + session.getClientId());
         }
 
         activeSessions.remove(clientChannel);
+        clientIdToChannel.remove(session.getClientId());
 
         clientChannel.close();
         System.out.println("Client disconnected: " + session.getClientId());
