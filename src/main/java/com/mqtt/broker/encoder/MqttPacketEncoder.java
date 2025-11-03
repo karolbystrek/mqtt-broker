@@ -1,79 +1,18 @@
 package com.mqtt.broker.encoder;
 
-import com.mqtt.broker.packet.ConnAckPacket;
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.packet.PingRespPacket;
-import com.mqtt.broker.packet.PubAckPacket;
-import com.mqtt.broker.packet.PubCompPacket;
-import com.mqtt.broker.packet.PubRecPacket;
-import com.mqtt.broker.packet.PubRelPacket;
-import com.mqtt.broker.packet.PublishPacket;
-import com.mqtt.broker.packet.SubAckPacket;
-import com.mqtt.broker.packet.UnsubAckPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
-import static java.nio.ByteBuffer.allocate;
+public final class MqttPacketEncoder {
 
-public class MqttPacketEncoder implements MqttPacketEncoderInterface, ConnAckPacketEncoder, SubAckPacketEncoder, PubAckPacketEncoder, PubRecPacketEncoder, PubRelPacketEncoder, PubCompPacketEncoder, PingRespPacketEncoder, UnsubAckPacketEncoder, PublishPacketEncoder {
+    private final EncoderRegistry registry;
 
-    @Override
-    public ByteBuffer encode(MqttPacket mqttPacket) {
-        return switch (mqttPacket) {
-            case ConnAckPacket packet -> encodeConnAck(packet);
-            case PingRespPacket packet -> encodePingResp(packet);
-            case PubAckPacket packet -> encodePubAck(packet);
-            case PubRecPacket packet -> encodePubRec(packet);
-            case PubRelPacket packet -> encodePubRel(packet);
-            case PubCompPacket packet -> encodePubComp(packet);
-            case PublishPacket packet -> encodePublish(packet);
-            case SubAckPacket packet -> encodeSubAck(packet);
-            case UnsubAckPacket packet -> encodeUnsubAck(packet);
-            default -> throw unsupportedPacketType(mqttPacket.getFixedHeader().packetType());
-        };
+    public MqttPacketEncoder() {
+        this.registry = new EncoderRegistry();
     }
 
-    @Override
-    public ByteBuffer encodeFixedHeader(MqttFixedHeader header) {
-        if (header.remainingLength() > 268435455) { // 256 MB
-            throw new IllegalArgumentException("Remaining length exceeds maximum allowed size");
-        }
-        byte headerByte1 = (byte) ((header.packetType().getValue() << 4) | (header.flags() & 0x0F));
-
-        int remainingLength = header.remainingLength();
-        int remainingLengthBytes = 0;
-        if (remainingLength == 0) {
-            remainingLengthBytes = 1;
-        } else {
-            int temp = remainingLength;
-            while (temp > 0) {
-                temp /= 128;
-                remainingLengthBytes++;
-            }
-        }
-        var buffer = allocate(1 + remainingLengthBytes);
-        buffer.put(headerByte1);
-
-        int value = header.remainingLength();
-        do { // encode remaining length
-            byte digit = (byte) (value % 128);
-            value /= 128;
-            if (value > 0) {
-                digit |= (byte) 0x80;
-            }
-            buffer.put(digit);
-        } while (value > 0);
-
-        buffer.flip();
-        return buffer;
-    }
-
-    @Override
-    public void encodeString(ByteBuffer buffer, String s) {
-        byte[] stringBytes = s.getBytes();
-        buffer.putShort((short) stringBytes.length);
-        buffer.put(stringBytes);
+    public ByteBuffer encode(MqttPacket packet) {
+        return registry.getEncoder(packet.getFixedHeader().packetType()).encode(packet);
     }
 }

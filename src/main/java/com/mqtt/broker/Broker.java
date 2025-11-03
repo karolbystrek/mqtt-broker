@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 import static java.nio.channels.SelectionKey.OP_READ;
+import static java.util.Optional.ofNullable;
 
 public class Broker implements AutoCloseable {
 
@@ -149,14 +150,15 @@ public class Broker implements AutoCloseable {
     }
 
     private void checkKeepAliveTimeouts() {
-        activeSessions.entrySet().stream()
+        var expiredSessions = activeSessions.entrySet().stream()
                 .filter(entry -> entry.getValue().isKeepAliveExpired())
-                .forEach(entry -> {
-                    Session session = entry.getValue();
-                    System.err.println("Keep Alive timeout for client: " + session.getClientId());
-                    SelectionKey key = entry.getKey().keyFor(selector);
-                    if (key != null) cleanupClient(key);
-                });
+                .toList();
+        expiredSessions.forEach(entry -> {
+            var session = entry.getValue();
+            System.err.println("Keep Alive timeout for client: " + session.getClientId());
+            ofNullable(entry.getKey().keyFor(selector))
+                    .ifPresent(this::cleanupClient);
+        });
     }
 
     private void cleanupClient(SelectionKey key) {
