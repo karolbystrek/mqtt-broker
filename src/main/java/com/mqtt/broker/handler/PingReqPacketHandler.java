@@ -7,21 +7,21 @@ import com.mqtt.broker.packet.PingRespPacket;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.PINGRESP;
-import static java.util.Optional.of;
 
 public final class PingReqPacketHandler implements MqttPacketHandler {
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof PingReqPacket pingReqPacket)) {
-            return Optional.empty();
+            return empty();
         }
 
         System.out.println("Received PINGREQ packet: " + pingReqPacket);
 
-        return of(new PingRespPacket(new MqttFixedHeader(PINGRESP, (byte) 0, 0)));
+        return withResponse(new PingRespPacket(new MqttFixedHeader(PINGRESP, (byte) 0, 0)));
     }
 }

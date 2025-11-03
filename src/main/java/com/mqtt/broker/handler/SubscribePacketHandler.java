@@ -12,11 +12,10 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 
 @RequiredArgsConstructor
 public class SubscribePacketHandler implements MqttPacketHandler {
@@ -25,7 +24,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
     private final TopicTree topicTree;
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof SubscribePacket subscribePacket)) {
             return empty();
         }
@@ -48,6 +47,6 @@ public class SubscribePacketHandler implements MqttPacketHandler {
                 .toList();
 
         var fixedHeader = new MqttFixedHeader(SUBACK, (byte) 0, 2 + grantedQosLevels.size());
-        return of(new SubAckPacket(fixedHeader, subscribePacket.getPacketIdentifier(), grantedQosLevels));
+        return withResponse(new SubAckPacket(fixedHeader, subscribePacket.getPacketIdentifier(), grantedQosLevels));
     }
 }

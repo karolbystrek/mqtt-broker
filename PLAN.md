@@ -85,7 +85,7 @@ This phase introduces features that make the broker more robust and compliant wi
       silent for more than 1.5 times its Keep Alive interval, you must close the connection.
     * Implement handlers for `PINGREQ` and `PINGRESP`. When you receive a `PINGREQ`, simply respond with a `PINGRESP`.
       Receiving any packet from a client, including `PINGREQ`, resets its inactivity timer.
-- [ ] **Step 9: Manage Persistent Sessions (`CleanSession = 0`)**
+- [x] **Step 9: Manage Persistent Sessions (`CleanSession = 0`)**
     * Modify your `CONNECT` handler to check the `CleanSession` flag.
     * If `CleanSession` is `0`, the session is persistent. When the client disconnects, you must preserve its session
       data (especially its subscriptions).

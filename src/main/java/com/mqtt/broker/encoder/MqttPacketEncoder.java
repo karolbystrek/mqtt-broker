@@ -7,6 +7,7 @@ import com.mqtt.broker.packet.PingRespPacket;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubCompPacket;
 import com.mqtt.broker.packet.PubRecPacket;
+import com.mqtt.broker.packet.PubRelPacket;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.UnsubAckPacket;
@@ -16,7 +17,7 @@ import java.nio.ByteBuffer;
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
 import static java.nio.ByteBuffer.allocate;
 
-public class MqttPacketEncoder implements MqttPacketEncoderInterface, ConnAckPacketEncoder, SubAckPacketEncoder, PubAckPacketEncoder, PubRecPacketEncoder, PubCompPacketEncoder, PingRespPacketEncoder, UnsubAckPacketEncoder, PublishPacketEncoder {
+public class MqttPacketEncoder implements MqttPacketEncoderInterface, ConnAckPacketEncoder, SubAckPacketEncoder, PubAckPacketEncoder, PubRecPacketEncoder, PubRelPacketEncoder, PubCompPacketEncoder, PingRespPacketEncoder, UnsubAckPacketEncoder, PublishPacketEncoder {
 
     @Override
     public ByteBuffer encode(MqttPacket mqttPacket) {
@@ -25,6 +26,7 @@ public class MqttPacketEncoder implements MqttPacketEncoderInterface, ConnAckPac
             case PingRespPacket packet -> encodePingResp(packet);
             case PubAckPacket packet -> encodePubAck(packet);
             case PubRecPacket packet -> encodePubRec(packet);
+            case PubRelPacket packet -> encodePubRel(packet);
             case PubCompPacket packet -> encodePubComp(packet);
             case PublishPacket packet -> encodePublish(packet);
             case SubAckPacket packet -> encodeSubAck(packet);

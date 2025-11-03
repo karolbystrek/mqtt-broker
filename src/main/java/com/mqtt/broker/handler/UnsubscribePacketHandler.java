@@ -11,11 +11,10 @@ import lombok.RequiredArgsConstructor;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBACK;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 
 @RequiredArgsConstructor
 public class UnsubscribePacketHandler implements MqttPacketHandler {
@@ -24,7 +23,7 @@ public class UnsubscribePacketHandler implements MqttPacketHandler {
     private final TopicTree topicTree;
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof UnsubscribePacket unsubscribePacket)) {
             return empty();
         }
@@ -43,6 +42,6 @@ public class UnsubscribePacketHandler implements MqttPacketHandler {
         });
 
         var unsubAckFixedHeader = new MqttFixedHeader(UNSUBACK, (byte) 0, 2);
-        return of(new UnsubAckPacket(unsubAckFixedHeader, unsubscribePacket.getPacketIdentifier()));
+        return withResponse(new UnsubAckPacket(unsubAckFixedHeader, unsubscribePacket.getPacketIdentifier()));
     }
 }

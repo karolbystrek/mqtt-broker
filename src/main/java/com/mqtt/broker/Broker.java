@@ -4,6 +4,7 @@ import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
 
 import java.io.IOException;
@@ -35,6 +36,7 @@ public class Broker implements AutoCloseable {
     private final TopicTree topicTree;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
+    private final PendingMessageDeliveryService pendingMessageService;
 
     public Broker() throws IOException {
         this.selector = Selector.open();
@@ -45,7 +47,8 @@ public class Broker implements AutoCloseable {
         this.clientIdToChannel = new ConcurrentHashMap<>();
         this.persistentSessions = new ConcurrentHashMap<>();
         this.topicTree = new TopicTree();
-        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree, clientIdToChannel);
+        this.pendingMessageService = new PendingMessageDeliveryService(encoder);
+        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree, clientIdToChannel, pendingMessageService);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -113,14 +116,17 @@ public class Broker implements AutoCloseable {
         updateClientActivity(clientChannel);
 
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
-        var optionalResponsePacket = handler.handle(clientChannel, packet);
+        var handlerResult = handler.handle(clientChannel, packet);
 
-        if (optionalResponsePacket.isPresent()) {
-            var responseBuffer = encoder.encode(optionalResponsePacket.get());
-
+        if (handlerResult.responsePacket().isPresent()) {
+            var responseBuffer = encoder.encode(handlerResult.responsePacket().get());
             while (responseBuffer.hasRemaining()) {
                 clientChannel.write(responseBuffer);
             }
+        }
+
+        if (handlerResult.postAction().isPresent()) {
+            handlerResult.postAction().get().execute(clientChannel);
         }
     }
 
@@ -139,7 +145,6 @@ public class Broker implements AutoCloseable {
         Session session = activeSessions.get(clientChannel);
         if (session != null) {
             session.updateLastActivity();
-            System.out.println("Updated activity for client: " + session.getClientId());
         }
     }
 

@@ -6,24 +6,25 @@ import com.mqtt.broker.packet.PubCompPacket;
 import com.mqtt.broker.packet.PubRelPacket;
 
 import java.nio.channels.SocketChannel;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBCOMP;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 
 public class PubRelPacketHandler implements MqttPacketHandler {
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
         if (!(packet instanceof PubRelPacket pubRelPacket)) {
             return empty();
         }
 
         System.out.println("Handling PUBREL packet: " + pubRelPacket);
 
-        // TODO: Always respond with PUBCOMP to complete QoS 2 flow?
+        // MQTT 3.1.1: When broker receives PUBREL from publisher, respond with PUBCOMP
+        // This completes the QoS 2 flow when broker is acting as subscriber/receiver
+        // The message should have been delivered to subscribers when PUBLISH was received
         var fixedHeader = new MqttFixedHeader(PUBCOMP, (byte) 0, 2);
-        return of(new PubCompPacket(fixedHeader, pubRelPacket.getPacketIdentifier()));
+        return withResponse(new PubCompPacket(fixedHeader, pubRelPacket.getPacketIdentifier()));
     }
 }

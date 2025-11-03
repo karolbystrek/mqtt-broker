@@ -1,5 +1,6 @@
 package com.mqtt.broker.handler;
 
+import com.mqtt.broker.Session;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
@@ -13,12 +14,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withAction;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
-import static java.util.Optional.empty;
+import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 
 @RequiredArgsConstructor
 public class PublishPacketHandler implements MqttPacketHandler {
@@ -26,23 +28,26 @@ public class PublishPacketHandler implements MqttPacketHandler {
     private final MqttPacketEncoder encoder = new MqttPacketEncoder();
     private final TopicTree topicTree;
     private final Map<String, SocketChannel> clientIdToChannel;
+    private final Map<String, Session> persistentSessions;
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
         if (!(packet instanceof PublishPacket publishPacket)) {
             return empty();
         }
 
         System.out.println("Handling PUBLISH packet: " + publishPacket);
 
-        forwardToSubscribers(publishPacket);
+        PostConnectionAction forwardAction = channel -> forwardToSubscribers(publishPacket);
 
         return switch (publishPacket.getQosLevel()) {
             case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> createPubAck(packetId));
+                    .map(packetId -> withResponseAndAction(createPubAck(packetId), forwardAction))
+                    .orElse(withAction(forwardAction));
             case EXACTLY_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> createPubRec(packetId));
-            default -> empty(); // QoS 0 requires no response
+                    .map(packetId -> withResponseAndAction(createPubRec(packetId), forwardAction))
+                    .orElse(withAction(forwardAction));
+            default -> withAction(forwardAction); // QoS 0 requires no response but still forwards
         };
     }
 
@@ -54,29 +59,44 @@ public class PublishPacketHandler implements MqttPacketHandler {
             return;
         }
 
-        var encodedPacket = encodePacket(packet); // encode once for all subscribers
+        var encodedPacket = encoder.encode(packet);
 
-        subscribedClientIds.stream()
-                .map(clientIdToChannel::get)
-                .filter(Objects::nonNull)
-                .forEach(channel -> sendPacket(channel, encodedPacket));
+        subscribedClientIds.forEach(clientId ->
+                routeMessageToClient(clientId, packet, encodedPacket)
+        );
     }
 
-    private ByteBuffer encodePacket(PublishPacket packet) {
-        var buffer = encoder.encode(packet);
-        buffer.flip();
-        return buffer;
+    private void routeMessageToClient(String clientId, PublishPacket packet, ByteBuffer encodedPacket) {
+        SocketChannel channel = clientIdToChannel.get(clientId);
+
+        if (channel != null) {
+            sendPacketToOnlineClient(channel, encodedPacket);
+        } else {
+            queueMessageForOfflineClient(clientId, packet);
+        }
     }
 
-    private void sendPacket(SocketChannel channel, ByteBuffer packetBuffer) {
+    private void sendPacketToOnlineClient(SocketChannel channel, ByteBuffer encodedPacket) {
         try {
-            // Duplicate the buffer so each client gets independent position tracking
-            var buffer = packetBuffer.duplicate();
+            var buffer = encodedPacket.duplicate();
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
             }
         } catch (IOException e) {
-            System.err.println("Failed to send PUBLISH packet to client: " + e.getMessage());
+            System.err.println("Failed to send PUBLISH packet to online client: " + e.getMessage());
+        }
+    }
+
+    private void queueMessageForOfflineClient(String clientId, PublishPacket packet) {
+        Session persistentSession = persistentSessions.get(clientId);
+
+        if (persistentSession == null) {
+            return;
+        }
+
+        if (packet.getQosLevel() != AT_MOST_ONCE) { // qos 1 and 2 should be queued
+            System.out.println("Queuing PUBLISH packet for offline client: " + clientId);
+            persistentSession.enqueuePendingMessage(packet);
         }
     }
 

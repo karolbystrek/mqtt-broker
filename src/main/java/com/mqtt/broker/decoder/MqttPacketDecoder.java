@@ -15,7 +15,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
-public class MqttPacketDecoder implements ConnectPacketDecoder, PublishPacketDecoder, SubscribePacketDecoder, UnsubscribePacketDecoder, PubAckPacketDecoder, PubRelPacketDecoder {
+public class MqttPacketDecoder implements ConnectPacketDecoder, PublishPacketDecoder, SubscribePacketDecoder, UnsubscribePacketDecoder, PubAckPacketDecoder, PubRelPacketDecoder, PubRecPacketDecoder, PubCompPacketDecoder {
 
     public Optional<MqttPacket> decode(ByteBuffer buffer) {
         if (buffer.remaining() < 2) {
@@ -40,6 +40,8 @@ public class MqttPacketDecoder implements ConnectPacketDecoder, PublishPacketDec
             case PUBLISH -> decodePublish(fixedHeader, packetBody);
             case PUBACK -> decodePubAck(fixedHeader, packetBody);
             case PUBREL -> decodePubRel(fixedHeader, packetBody);
+            case PUBREC -> decodePubRec(fixedHeader, packetBody);
+            case PUBCOMP -> decodePubComp(fixedHeader, packetBody);
             case SUBSCRIBE -> decodeSubscribe(fixedHeader, packetBody);
             case UNSUBSCRIBE -> decodeUnsubscribe(fixedHeader, packetBody);
             case PINGREQ -> new PingReqPacket(fixedHeader);

@@ -1,12 +1,14 @@
 package com.mqtt.broker.packet;
 
 import lombok.Getter;
+import lombok.ToString;
 
 import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
 
 @Getter
+@ToString
 public final class PubRecPacket extends MqttPacket {
 
     private final int packetIdentifier;

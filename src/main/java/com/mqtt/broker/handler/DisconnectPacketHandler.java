@@ -9,9 +9,8 @@ import lombok.RequiredArgsConstructor;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.Optional;
 
-import static java.util.Optional.empty;
+import static com.mqtt.broker.handler.HandlerResult.empty;
 
 @RequiredArgsConstructor
 public final class DisconnectPacketHandler implements MqttPacketHandler {
@@ -22,33 +21,31 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
     private final Map<String, SocketChannel> clientIdToChannel;
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof DisconnectPacket)) {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+        if (!(packet instanceof DisconnectPacket disconnectPacket)) {
             return empty();
         }
 
-        System.out.println("Received DISCONNECT packet from: " + clientChannel.getRemoteAddress());
+        System.out.println("Received DISCONNECT packet: " + disconnectPacket);
 
         Session session = activeSessions.get(clientChannel);
         if (session == null) {
             System.err.println("No active session found for disconnecting client");
-            clientChannel.close();
             return empty();
         }
 
         // TODO: Discard any Will Message associated with the connection (MQTT-3.14.4-3)
 
+        String clientId = session.getClientId();
         if (session.isCleanSession()) {
-            topicTree.removeAllSubscriptionsFor(session.getClientId());
+            topicTree.removeAllSubscriptionsFor(clientId);
         } else {
-            persistentSessions.put(session.getClientId(), session);
+            persistentSessions.put(clientId, session);
+            System.out.println("Saved persistent session for client: " + clientId);
         }
 
         activeSessions.remove(clientChannel);
-        clientIdToChannel.remove(session.getClientId());
-
-        clientChannel.close();
-        System.out.println("Client disconnected: " + session.getClientId());
+        clientIdToChannel.remove(clientId);
 
         return empty();
     }

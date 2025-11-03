@@ -6,17 +6,18 @@ import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.Optional;
 
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 
 @RequiredArgsConstructor
 public class ConnectPacketHandler implements MqttPacketHandler {
@@ -28,9 +29,10 @@ public class ConnectPacketHandler implements MqttPacketHandler {
     private final Map<String, Session> persistentSessions;
     private final Map<String, SocketChannel> clientIdToChannel;
     private final TopicTree topicTree;
+    private final PendingMessageDeliveryService pendingMessageService;
 
     @Override
-    public Optional<MqttPacket> handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         if (!(packet instanceof ConnectPacket connectPacket)) {
             return empty();
         }
@@ -49,7 +51,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         if (!variableHeader.protocolName().equals(MQTT_PROTOCOL_NAME) || variableHeader.protocolVersion() != MQTT_3_1_1_VERSION) {
             System.out.println("Connection refused for " + clientChannel.getRemoteAddress() + ": Unsupported protocol");
             clientChannel.close();
-            return of(createConnAckPacket((byte) 0, 1)); // Connection Refused, unacceptable protocol version
+            return withResponse(createConnAckPacket((byte) 0, 1)); // Connection Refused, unacceptable protocol version
         }
 
         String clientId = connectPacket.getPayload().clientId();
@@ -57,12 +59,19 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         int keepAlive = variableHeader.keepAlive();
         byte sessionPresentFlag = 0;
         Session session;
+        boolean hasPendingMessages = false;
+
+        SocketChannel existingClientChannel = clientIdToChannel.get(clientId);
+        if (existingClientChannel != null && existingClientChannel != clientChannel) {
+            System.out.println("Client with ID " + clientId + " already connected. Disconnecting old connection.");
+            existingClientChannel.close();
+        }
 
         if (cleanSessionFlag) {
             Session oldPersistentSession = persistentSessions.remove(clientId);
             if (oldPersistentSession != null) {
                 topicTree.removeAllSubscriptionsFor(clientId);
-                System.out.println("Removed old persistent session and subscriptions for client: " + clientId);
+                oldPersistentSession.clearPendingMessages();
             }
             session = new Session(clientId, true, keepAlive);
 
@@ -70,19 +79,27 @@ public class ConnectPacketHandler implements MqttPacketHandler {
             // Persistent session: restore if exists, otherwise create new
             session = persistentSessions.remove(clientId);
             if (session != null) {
-                System.out.println("Restored persistent session for client: " + clientId);
-                session.updateKeepAlive(keepAlive);
                 sessionPresentFlag = 1;
+                session.updateKeepAlive(keepAlive);
+                hasPendingMessages = session.getPendingMessagesStream().findAny().isPresent();
             } else {
                 session = new Session(clientId, false, keepAlive);
             }
         }
-        
+
         session.updateLastActivity();
         activeSessions.put(clientChannel, session);
         clientIdToChannel.put(clientId, clientChannel);
-        System.out.println("Client " + clientId + " connected");
-        return of(createConnAckPacket(sessionPresentFlag, 0));
+
+        var connAckPacket = createConnAckPacket(sessionPresentFlag, 0);
+
+        if (hasPendingMessages) {
+            final Session sessionFinal = session;
+            PostConnectionAction deliveryAction = channel -> pendingMessageService.deliverPendingMessages(channel, sessionFinal);
+            return withResponseAndAction(connAckPacket, deliveryAction);
+        }
+
+        return withResponse(connAckPacket);
     }
 
     private ConnAckPacket createConnAckPacket(byte sessionPresent, int returnCode) {
