@@ -79,7 +79,7 @@ publish messages that are correctly delivered to other subscribers.
 
 This phase introduces features that make the broker more robust and compliant with the full MQTT specification.
 
-- [ ] **Step 8: Implement Keep Alive (PINGREQ \& PINGRESP)**
+- [x] **Step 8: Implement Keep Alive (PINGREQ \& PINGRESP)**
     * When processing a `CONNECT` packet, store the client's requested **Keep Alive** interval in its session.
     * In your main server loop, track the time since the last packet was received from each client. If a client is
       silent for more than 1.5 times its Keep Alive interval, you must close the connection.

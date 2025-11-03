@@ -40,7 +40,18 @@ public class MqttPacketEncoder implements MqttPacketEncoderInterface, ConnAckPac
         }
         byte headerByte1 = (byte) ((header.packetType().getValue() << 4) | (header.flags() & 0x0F));
 
-        var buffer = allocate(5); // Max 5 bytes for fixed header
+        int remainingLength = header.remainingLength();
+        int remainingLengthBytes = 0;
+        if (remainingLength == 0) {
+            remainingLengthBytes = 1;
+        } else {
+            int temp = remainingLength;
+            while (temp > 0) {
+                temp /= 128;
+                remainingLengthBytes++;
+            }
+        }
+        var buffer = allocate(1 + remainingLengthBytes);
         buffer.put(headerByte1);
 
         int value = header.remainingLength();

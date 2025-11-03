@@ -14,9 +14,11 @@ public interface ConnAckPacketEncoder extends MqttPacketEncoderInterface {
         variableHeader[1] = (byte) packet.getVariableHeader().returnCode();
 
         var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
-        
-        return allocate(fixedHeaderBuffer.remaining() + variableHeader.length)
-                .put(fixedHeaderBuffer)
-                .put(variableHeader);
+
+        var buffer = allocate(fixedHeaderBuffer.remaining() + variableHeader.length);
+        buffer.put(fixedHeaderBuffer);
+        buffer.put(variableHeader);
+        buffer.flip();
+        return buffer;
     }
 }

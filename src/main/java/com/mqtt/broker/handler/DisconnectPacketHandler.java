@@ -40,10 +40,8 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
 
         if (session.isCleanSession()) {
             topicTree.removeAllSubscriptionsFor(session.getClientId());
-            System.out.println("Removed all subscriptions for clean session client: " + session.getClientId());
         } else {
             persistentSessions.put(session.getClientId(), session);
-            System.out.println("Saved persistent session for client: " + session.getClientId());
         }
 
         activeSessions.remove(clientChannel);

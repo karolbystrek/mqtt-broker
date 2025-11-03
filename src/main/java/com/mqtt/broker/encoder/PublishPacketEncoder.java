@@ -31,6 +31,7 @@ public interface PublishPacketEncoder extends MqttPacketEncoderInterface {
         }
 
         buffer.put(packet.getPayload());
+        buffer.flip();
 
         return buffer;
     }

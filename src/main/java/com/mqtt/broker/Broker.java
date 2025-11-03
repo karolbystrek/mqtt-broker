@@ -23,6 +23,7 @@ public class Broker implements AutoCloseable {
 
     private static final String HOST = "localhost";
     private static final int PORT = 1883;
+    private static final long KEEP_ALIVE_CHECK_INTERVAL_MS = 1_000;
 
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
@@ -52,7 +53,10 @@ public class Broker implements AutoCloseable {
         System.out.println("Broker started on " + HOST + ":" + PORT);
         try {
             while (true) {
-                selector.select();
+                selector.select(KEEP_ALIVE_CHECK_INTERVAL_MS);
+
+                checkKeepAliveTimeouts();
+
                 var keyIterator = selector.selectedKeys().iterator();
                 while (keyIterator.hasNext()) {
                     var key = keyIterator.next();
@@ -85,7 +89,7 @@ public class Broker implements AutoCloseable {
         }
         int bytesRead = clientChannel.read(buffer);
         if (bytesRead == -1) {
-            System.out.println("Connection close by: " + clientChannel.getRemoteAddress());
+            System.out.println("Connection closed by: " + clientChannel.getRemoteAddress());
             cleanupClient(key);
             return;
         }
@@ -106,12 +110,13 @@ public class Broker implements AutoCloseable {
     }
 
     private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+        updateClientActivity(clientChannel);
+
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
         var optionalResponsePacket = handler.handle(clientChannel, packet);
 
         if (optionalResponsePacket.isPresent()) {
             var responseBuffer = encoder.encode(optionalResponsePacket.get());
-            responseBuffer.flip();
 
             while (responseBuffer.hasRemaining()) {
                 clientChannel.write(responseBuffer);
@@ -128,6 +133,25 @@ public class Broker implements AutoCloseable {
         clientBuffers.put(clientChannel, ByteBuffer.allocate(8192));
 
         System.out.println("Accepted new connection from " + clientChannel.getRemoteAddress());
+    }
+
+    private void updateClientActivity(SocketChannel clientChannel) {
+        Session session = activeSessions.get(clientChannel);
+        if (session != null) {
+            session.updateLastActivity();
+            System.out.println("Updated activity for client: " + session.getClientId());
+        }
+    }
+
+    private void checkKeepAliveTimeouts() {
+        activeSessions.entrySet().stream()
+                .filter(entry -> entry.getValue().isKeepAliveExpired())
+                .forEach(entry -> {
+                    Session session = entry.getValue();
+                    System.err.println("Keep Alive timeout for client: " + session.getClientId());
+                    SelectionKey key = entry.getKey().keyFor(selector);
+                    if (key != null) cleanupClient(key);
+                });
     }
 
     private void cleanupClient(SelectionKey key) {

@@ -23,6 +23,7 @@ public interface SubAckPacketEncoder extends MqttPacketEncoderInterface {
         fullPacket.put(fixedHeader);
         fullPacket.putShort((short) packet.getPacketIdentifier());
         fullPacket.put(payload);
+        fullPacket.flip();
 
         return fullPacket;
     }

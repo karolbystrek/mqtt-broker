@@ -54,6 +54,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         String clientId = connectPacket.getPayload().clientId();
         boolean cleanSessionFlag = variableHeader.cleanSession();
+        int keepAlive = variableHeader.keepAlive();
         byte sessionPresentFlag = 0;
         Session session;
 
@@ -63,18 +64,21 @@ public class ConnectPacketHandler implements MqttPacketHandler {
                 topicTree.removeAllSubscriptionsFor(clientId);
                 System.out.println("Removed old persistent session and subscriptions for client: " + clientId);
             }
-            session = new Session(clientId, true);
+            session = new Session(clientId, true, keepAlive);
+
         } else {
             // Persistent session: restore if exists, otherwise create new
             session = persistentSessions.remove(clientId);
             if (session != null) {
                 System.out.println("Restored persistent session for client: " + clientId);
+                session.updateKeepAlive(keepAlive);
                 sessionPresentFlag = 1;
             } else {
-                session = new Session(clientId, false);
+                session = new Session(clientId, false, keepAlive);
             }
         }
-
+        
+        session.updateLastActivity();
         activeSessions.put(clientChannel, session);
         clientIdToChannel.put(clientId, clientChannel);
         System.out.println("Client " + clientId + " connected");

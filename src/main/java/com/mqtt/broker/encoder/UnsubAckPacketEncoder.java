@@ -14,6 +14,7 @@ public interface UnsubAckPacketEncoder extends MqttPacketEncoderInterface {
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
         fullPacket.put(fixedHeaderBuffer);
         fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.flip();
 
         return fullPacket;
     }

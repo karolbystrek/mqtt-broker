@@ -15,6 +15,7 @@ public interface PubRecPacketEncoder extends MqttPacketEncoderInterface {
 
         fullPacket.put(fixedHeaderBuffer);
         fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.flip();
 
         return fullPacket;
     }
