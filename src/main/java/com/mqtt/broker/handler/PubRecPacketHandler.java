@@ -5,21 +5,21 @@ import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PubRelPacket;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREL;
 
+@Slf4j
 public class PubRecPacketHandler implements MqttPacketHandler {
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof PubRecPacket pubRecPacket)) {
-            return empty();
-        }
+        var pubRecPacket = (PubRecPacket) packet;
 
-        System.out.println("Received PUBREC packet: " + pubRecPacket);
+        log.info("Received PUBREC packet: {}", pubRecPacket);
 
         // MQTT 3.1.1: When broker receives PUBREC from subscriber, respond with PUBREL
         // This continues the QoS 2 flow when broker is acting as publisher

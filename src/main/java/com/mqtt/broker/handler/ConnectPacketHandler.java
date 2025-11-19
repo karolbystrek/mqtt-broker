@@ -9,17 +9,20 @@ import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withAction;
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
 
 @RequiredArgsConstructor
+@Slf4j
 public class ConnectPacketHandler implements MqttPacketHandler {
 
     private static final int MQTT_3_1_1_VERSION = 4;
@@ -39,19 +42,20 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         // Check for protocol violation: multiple CONNECT packets from the same client
         if (activeSessions.containsKey(clientChannel)) {
-            System.err.println("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
-            clientChannel.close();
-            return empty();
+            log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
+            return withAction(java.nio.channels.SocketChannel::close);
         }
 
-        System.out.println("Received CONNECT packet: " + connectPacket);
+        log.info("Received CONNECT packet: {}", connectPacket);
 
         var variableHeader = connectPacket.getVariableHeader();
 
-        if (!variableHeader.protocolName().equals(MQTT_PROTOCOL_NAME) || variableHeader.protocolVersion() != MQTT_3_1_1_VERSION) {
-            System.out.println("Connection refused for " + clientChannel.getRemoteAddress() + ": Unsupported protocol");
-            clientChannel.close();
-            return withResponse(createConnAckPacket((byte) 0, 1)); // Connection Refused, unacceptable protocol version
+        if (!MQTT_PROTOCOL_NAME.equals(variableHeader.protocolName()) || variableHeader.protocolVersion() != MQTT_3_1_1_VERSION) {
+            log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
+            return HandlerResult.withResponseAndAction(
+                    createConnAckPacket((byte) 0, 1),
+                    java.nio.channels.SocketChannel::close
+            );
         }
 
         String clientId = connectPacket.getPayload().clientId();
@@ -63,7 +67,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         SocketChannel existingClientChannel = clientIdToChannel.get(clientId);
         if (existingClientChannel != null && existingClientChannel != clientChannel) {
-            System.out.println("Client with ID " + clientId + " already connected. Disconnecting old connection.");
+            log.info("Client with ID {} already connected. Disconnecting old connection.", clientId);
             existingClientChannel.close();
         }
 

@@ -14,10 +14,13 @@ import java.util.List;
 import java.util.Map;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
+import lombok.extern.slf4j.Slf4j;
+
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 
 @RequiredArgsConstructor
+@Slf4j
 public class SubscribePacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
@@ -25,15 +28,13 @@ public class SubscribePacketHandler implements MqttPacketHandler {
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof SubscribePacket subscribePacket)) {
-            return empty();
-        }
+        var subscribePacket = (SubscribePacket) packet;
 
-        System.out.println("Received SUBSCRIBE packet: " + subscribePacket);
+        log.info("Received SUBSCRIBE packet: {}", subscribePacket);
 
         Session session = activeSessions.get(clientChannel);
         if (session == null) {
-            System.err.println("No session found for channel: " + clientChannel.getRemoteAddress());
+            log.error("No session found for channel: {}", clientChannel.getRemoteAddress());
             return empty();
         }
 

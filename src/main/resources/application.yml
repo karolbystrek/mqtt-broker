@@ -1,0 +1,7 @@
+server:
+  host: localhost
+  port: 1883
+mqtt:
+  keepAliveCheckIntervalMs: 1000
+logging:
+  level: INFO

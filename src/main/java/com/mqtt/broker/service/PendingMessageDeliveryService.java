@@ -3,10 +3,13 @@ package com.mqtt.broker.service;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
+@Slf4j
 public class PendingMessageDeliveryService {
 
     private final MqttPacketEncoder encoder;
@@ -29,7 +32,7 @@ public class PendingMessageDeliveryService {
                 clientChannel.write(encodedPacket);
             }
         } catch (IOException e) {
-            System.err.println("Failed to deliver pending message: " + e.getMessage());
+            log.error("Failed to deliver pending message: " + e.getMessage());
         }
     }
 }

@@ -9,6 +9,7 @@ import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,6 +24,7 @@ import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
 import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 
 @RequiredArgsConstructor
+@Slf4j
 public class PublishPacketHandler implements MqttPacketHandler {
 
     private final MqttPacketEncoder encoder = new MqttPacketEncoder();
@@ -36,7 +38,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
             return empty();
         }
 
-        System.out.println("Handling PUBLISH packet: " + publishPacket);
+        log.info("Handling PUBLISH packet: {}", publishPacket);
 
         PostConnectionAction forwardAction = channel -> forwardToSubscribers(publishPacket);
 
@@ -83,7 +85,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
                 channel.write(buffer);
             }
         } catch (IOException e) {
-            System.err.println("Failed to send PUBLISH packet to online client: " + e.getMessage());
+            log.error("Failed to send PUBLISH packet to online client: {}", e.getMessage());
         }
     }
 
@@ -95,7 +97,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
         }
 
         if (packet.getQosLevel() != AT_MOST_ONCE) { // qos 1 and 2 should be queued
-            System.out.println("Queuing PUBLISH packet for offline client: " + clientId);
+            log.info("Queuing PUBLISH packet for offline client: {}", clientId);
             persistentSession.enqueuePendingMessage(packet);
         }
     }

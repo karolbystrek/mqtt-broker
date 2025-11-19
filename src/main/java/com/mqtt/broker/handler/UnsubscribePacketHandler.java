@@ -7,6 +7,7 @@ import com.mqtt.broker.packet.UnsubAckPacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
@@ -17,6 +18,7 @@ import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBACK;
 
 @RequiredArgsConstructor
+@Slf4j
 public class UnsubscribePacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
@@ -24,15 +26,13 @@ public class UnsubscribePacketHandler implements MqttPacketHandler {
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof UnsubscribePacket unsubscribePacket)) {
-            return empty();
-        }
+        var unsubscribePacket = (UnsubscribePacket) packet;
 
-        System.out.println("Handling UNSUBSCRIBE packet: " + unsubscribePacket);
+        log.info("Handling UNSUBSCRIBE packet: {}", unsubscribePacket);
 
         var clientSession = activeSessions.get(clientChannel);
         if (clientSession == null) {
-            System.err.println("No session found for channel: " + clientChannel.getRemoteAddress());
+            log.error("No session found for channel: {}", clientChannel.getRemoteAddress());
             return empty();
         }
 

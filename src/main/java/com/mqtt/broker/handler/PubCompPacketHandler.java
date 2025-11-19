@@ -3,19 +3,20 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubCompPacket;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
 
+@Slf4j
 public class PubCompPacketHandler implements MqttPacketHandler {
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof PubCompPacket pubCompPacket)) {
-            return empty();
-        }
+        var pubCompPacket = (PubCompPacket) packet;
 
-        System.out.println("Handling PUBCOMP packet: " + pubCompPacket);
+        log.info("Handling PUBCOMP packet: {}", pubCompPacket);
         // MQTT 3.1.1: PUBCOMP completes QoS 2 message delivery from broker to subscriber
         // No response needed - this is the final packet in QoS 2 flow
         // TODO: Remove packet from pending messages tracking

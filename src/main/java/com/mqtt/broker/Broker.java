@@ -1,5 +1,6 @@
 package com.mqtt.broker;
 
+import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
@@ -17,15 +18,16 @@ import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import lombok.extern.slf4j.Slf4j;
+
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.util.Optional.ofNullable;
 
+@Slf4j
 public class Broker implements AutoCloseable {
 
-    private static final String HOST = "localhost";
-    private static final int PORT = 1883;
-    private static final long KEEP_ALIVE_CHECK_INTERVAL_MS = 1_000;
+    private final BrokerConfiguration config;
 
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
@@ -39,9 +41,10 @@ public class Broker implements AutoCloseable {
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
     private final PendingMessageDeliveryService pendingMessageService;
 
-    public Broker() throws IOException {
+    public Broker(BrokerConfiguration config) throws IOException {
+        this.config = config;
         this.selector = Selector.open();
-        this.serverChannel = setupServer(selector);
+        this.serverChannel = setupServer(selector, config);
         this.decoder = new MqttPacketDecoder();
         this.encoder = new MqttPacketEncoder();
         this.activeSessions = new ConcurrentHashMap<>();
@@ -54,10 +57,10 @@ public class Broker implements AutoCloseable {
     }
 
     public void start() {
-        System.out.println("Broker started on " + HOST + ":" + PORT);
+        log.info("Broker started on {}:{}", config.getServer().getHost(), config.getServer().getPort());
         try {
             while (true) {
-                selector.select(KEEP_ALIVE_CHECK_INTERVAL_MS);
+                selector.select(config.getMqtt().getKeepAliveCheckIntervalMs());
 
                 checkKeepAliveTimeouts();
 
@@ -71,7 +74,7 @@ public class Broker implements AutoCloseable {
                             handleRead(key);
                         }
                     } catch (Exception e) {
-                        System.err.println("Error handling client" + key + ": " + e.getMessage());
+                        log.error("Error handling client {}: {}", key, e.getMessage());
                         cleanupClient(key);
                     } finally {
                         keyIterator.remove();
@@ -79,7 +82,7 @@ public class Broker implements AutoCloseable {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Broker encountered an error: " + e.getMessage());
+            log.error("Broker encountered an error: {}", e.getMessage());
         } finally {
             close();
         }
@@ -93,7 +96,7 @@ public class Broker implements AutoCloseable {
         }
         int bytesRead = clientChannel.read(buffer);
         if (bytesRead == -1) {
-            System.out.println("Connection closed by: " + clientChannel.getRemoteAddress());
+            log.info("Connection closed by: {}", clientChannel.getRemoteAddress());
             cleanupClient(key);
             return;
         }
@@ -139,7 +142,7 @@ public class Broker implements AutoCloseable {
 
         clientBuffers.put(clientChannel, ByteBuffer.allocate(8192));
 
-        System.out.println("Accepted new connection from " + clientChannel.getRemoteAddress());
+        log.info("Accepted new connection from {}", clientChannel.getRemoteAddress());
     }
 
     private void updateClientActivity(SocketChannel clientChannel) {
@@ -155,7 +158,7 @@ public class Broker implements AutoCloseable {
                 .toList();
         expiredSessions.forEach(entry -> {
             var session = entry.getValue();
-            System.err.println("Keep Alive timeout for client: " + session.getClientId());
+            log.warn("Keep Alive timeout for client: {}", session.getClientId());
             ofNullable(entry.getKey().keyFor(selector))
                     .ifPresent(this::cleanupClient);
         });
@@ -170,7 +173,7 @@ public class Broker implements AutoCloseable {
                 topicTree.removeAllSubscriptionsFor(session.getClientId());
             } else {
                 persistentSessions.put(session.getClientId(), session);
-                System.out.println("Saved persistent session for client: " + session.getClientId());
+                log.info("Saved persistent session for client: {}", session.getClientId());
             }
             clientIdToChannel.remove(session.getClientId());
         }
@@ -179,7 +182,7 @@ public class Broker implements AutoCloseable {
             key.cancel();
             clientChannel.close();
         } catch (IOException e) {
-            System.err.println("Error closing client channel: " + e.getMessage());
+            log.error("Error closing client channel: {}", e.getMessage());
         } finally {
             clientBuffers.remove(clientChannel);
             activeSessions.remove(clientChannel);
@@ -188,18 +191,18 @@ public class Broker implements AutoCloseable {
 
     @Override
     public void close() {
-        System.out.println("Shutting down broker...");
+        log.info("Shutting down broker...");
         try {
             if (selector != null) selector.close();
             if (serverChannel != null) serverChannel.close();
         } catch (IOException e) {
-            System.err.println("Error closing broker: " + e.getMessage());
+            log.error("Error closing broker: {}", e.getMessage());
         }
     }
 
-    private static ServerSocketChannel setupServer(Selector selector) throws IOException {
+    private static ServerSocketChannel setupServer(Selector selector, BrokerConfiguration config) throws IOException {
         var serverChannel = ServerSocketChannel.open();
-        serverChannel.bind(new InetSocketAddress(HOST, PORT));
+        serverChannel.bind(new InetSocketAddress(config.getServer().getHost(), config.getServer().getPort()));
         serverChannel.configureBlocking(false);
         serverChannel.register(selector, OP_ACCEPT);
         return serverChannel;

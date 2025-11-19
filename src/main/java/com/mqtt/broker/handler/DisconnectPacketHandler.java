@@ -10,9 +10,13 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
+
 import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withAction;
 
 @RequiredArgsConstructor
+@Slf4j
 public final class DisconnectPacketHandler implements MqttPacketHandler {
 
     private final Map<SocketChannel, Session> activeSessions;
@@ -22,26 +26,22 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof DisconnectPacket disconnectPacket)) {
-            return empty();
-        }
+        var disconnectPacket = (DisconnectPacket) packet;
 
-        System.out.println("Received DISCONNECT packet: " + disconnectPacket);
+        log.info("Received DISCONNECT packet: {}", disconnectPacket);
 
         Session session = activeSessions.get(clientChannel);
         if (session == null) {
-            System.err.println("No active session found for disconnecting client");
-            return empty();
+            log.warn("No active session found for disconnecting client");
+            return withAction(java.nio.channels.SocketChannel::close);
         }
-
-        // TODO: Discard any Will Message associated with the connection (MQTT-3.14.4-3)
 
         String clientId = session.getClientId();
         if (session.isCleanSession()) {
             topicTree.removeAllSubscriptionsFor(clientId);
         } else {
             persistentSessions.put(clientId, session);
-            System.out.println("Saved persistent session for client: " + clientId);
+            log.info("Saved persistent session for client: {}", clientId);
         }
 
         activeSessions.remove(clientChannel);
