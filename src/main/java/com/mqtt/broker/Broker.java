@@ -1,12 +1,11 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
 import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.service.PendingMessageDeliveryService;
-import com.mqtt.broker.trie.TopicTree;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -28,31 +27,23 @@ import static java.util.Optional.ofNullable;
 public class Broker implements AutoCloseable {
 
     private final BrokerConfiguration config;
+    private final BrokerContext context;
 
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder decoder;
     private final MqttPacketEncoder encoder;
-    private final Map<SocketChannel, Session> activeSessions;
-    private final Map<String, SocketChannel> clientIdToChannel;
-    private final Map<String, Session> persistentSessions;
-    private final TopicTree topicTree;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
-    private final PendingMessageDeliveryService pendingMessageService;
 
-    public Broker(BrokerConfiguration config) throws IOException {
+    public Broker(BrokerConfiguration config, BrokerContext context) throws IOException {
         this.config = config;
+        this.context = context;
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector, config);
         this.decoder = new MqttPacketDecoder();
         this.encoder = new MqttPacketEncoder();
-        this.activeSessions = new ConcurrentHashMap<>();
-        this.clientIdToChannel = new ConcurrentHashMap<>();
-        this.persistentSessions = new ConcurrentHashMap<>();
-        this.topicTree = new TopicTree();
-        this.pendingMessageService = new PendingMessageDeliveryService(encoder);
-        this.handlerFactory = new PacketHandlerFactory(activeSessions, persistentSessions, topicTree, clientIdToChannel, pendingMessageService);
+        this.handlerFactory = new PacketHandlerFactory(context);
         this.clientBuffers = new ConcurrentHashMap<>();
     }
 
@@ -146,14 +137,14 @@ public class Broker implements AutoCloseable {
     }
 
     private void updateClientActivity(SocketChannel clientChannel) {
-        Session session = activeSessions.get(clientChannel);
+        Session session = context.getSession(clientChannel);
         if (session != null) {
             session.updateLastActivity();
         }
     }
 
     private void checkKeepAliveTimeouts() {
-        var expiredSessions = activeSessions.entrySet().stream()
+        var expiredSessions = context.getActiveSessions().entrySet().stream()
                 .filter(entry -> entry.getValue().isKeepAliveExpired())
                 .toList();
         expiredSessions.forEach(entry -> {
@@ -167,15 +158,15 @@ public class Broker implements AutoCloseable {
     private void cleanupClient(SelectionKey key) {
         var clientChannel = (SocketChannel) key.channel();
 
-        Session session = activeSessions.get(clientChannel);
+        Session session = context.getSession(clientChannel);
         if (session != null) {
             if (session.isCleanSession()) {
-                topicTree.removeAllSubscriptionsFor(session.getClientId());
+                context.getTopicTree().removeAllSubscriptionsFor(session.getClientId());
             } else {
-                persistentSessions.put(session.getClientId(), session);
+                context.savePersistentSession(session.getClientId(), session);
                 log.info("Saved persistent session for client: {}", session.getClientId());
             }
-            clientIdToChannel.remove(session.getClientId());
+            context.removeSession(clientChannel);
         }
 
         try {
@@ -185,7 +176,7 @@ public class Broker implements AutoCloseable {
             log.error("Error closing client channel: {}", e.getMessage());
         } finally {
             clientBuffers.remove(clientChannel);
-            activeSessions.remove(clientChannel);
+            context.removeSession(clientChannel);
         }
     }
 

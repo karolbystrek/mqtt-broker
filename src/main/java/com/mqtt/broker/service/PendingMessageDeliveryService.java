@@ -28,6 +28,7 @@ public class PendingMessageDeliveryService {
 
     private void sendMessage(SocketChannel clientChannel, ByteBuffer encodedPacket) {
         try {
+            log.info("Sending pending message to {}", clientChannel.getRemoteAddress());
             while (encodedPacket.hasRemaining()) {
                 clientChannel.write(encodedPacket);
             }

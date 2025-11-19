@@ -1,19 +1,18 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.Session;
+import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.service.PendingMessageDeliveryService;
-import com.mqtt.broker.trie.TopicTree;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
-import java.util.Map;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withAction;
@@ -28,11 +27,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
     private static final int MQTT_3_1_1_VERSION = 4;
     private static final String MQTT_PROTOCOL_NAME = "MQTT";
 
-    private final Map<SocketChannel, Session> activeSessions;
-    private final Map<String, Session> persistentSessions;
-    private final Map<String, SocketChannel> clientIdToChannel;
-    private final TopicTree topicTree;
-    private final PendingMessageDeliveryService pendingMessageService;
+    private final BrokerContext context;
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
@@ -41,7 +36,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         // Check for protocol violation: multiple CONNECT packets from the same client
-        if (activeSessions.containsKey(clientChannel)) {
+        if (context.getSession(clientChannel) != null) {
             log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
             return withAction(java.nio.channels.SocketChannel::close);
         }
@@ -65,23 +60,23 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         Session session;
         boolean hasPendingMessages = false;
 
-        SocketChannel existingClientChannel = clientIdToChannel.get(clientId);
+        SocketChannel existingClientChannel = context.getClientChannel(clientId);
         if (existingClientChannel != null && existingClientChannel != clientChannel) {
             log.info("Client with ID {} already connected. Disconnecting old connection.", clientId);
             existingClientChannel.close();
         }
 
         if (cleanSessionFlag) {
-            Session oldPersistentSession = persistentSessions.remove(clientId);
+            Session oldPersistentSession = context.removePersistentSession(clientId);
             if (oldPersistentSession != null) {
-                topicTree.removeAllSubscriptionsFor(clientId);
+                context.getTopicTree().removeAllSubscriptionsFor(clientId);
                 oldPersistentSession.clearPendingMessages();
             }
             session = new Session(clientId, true, keepAlive);
 
         } else {
             // Persistent session: restore if exists, otherwise create new
-            session = persistentSessions.remove(clientId);
+            session = context.removePersistentSession(clientId);
             if (session != null) {
                 sessionPresentFlag = 1;
                 session.updateKeepAlive(keepAlive);
@@ -92,14 +87,13 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         session.updateLastActivity();
-        activeSessions.put(clientChannel, session);
-        clientIdToChannel.put(clientId, clientChannel);
+        context.registerSession(clientChannel, session);
 
         var connAckPacket = createConnAckPacket(sessionPresentFlag, 0);
 
         if (hasPendingMessages) {
             final Session sessionFinal = session;
-            PostConnectionAction deliveryAction = channel -> pendingMessageService.deliverPendingMessages(channel, sessionFinal);
+            PostConnectionAction deliveryAction = channel -> context.getPendingMessageService().deliverPendingMessages(channel, sessionFinal);
             return withResponseAndAction(connAckPacket, deliveryAction);
         }
 

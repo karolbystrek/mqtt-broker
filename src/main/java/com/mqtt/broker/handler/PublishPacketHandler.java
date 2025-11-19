@@ -1,20 +1,20 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.Session;
+import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
-import com.mqtt.broker.trie.TopicTree;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.Map;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withAction;
@@ -28,9 +28,9 @@ import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 public class PublishPacketHandler implements MqttPacketHandler {
 
     private final MqttPacketEncoder encoder = new MqttPacketEncoder();
-    private final TopicTree topicTree;
-    private final Map<String, SocketChannel> clientIdToChannel;
-    private final Map<String, Session> persistentSessions;
+    private final BrokerContext context;
+
+
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
@@ -55,7 +55,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
 
     private void forwardToSubscribers(PublishPacket packet) {
         var topic = packet.getVariableHeader().topicName();
-        var subscribedClientIds = topicTree.getSubscribersFor(topic);
+        var subscribedClientIds = context.getTopicTree().getSubscribersFor(topic);
 
         if (subscribedClientIds.isEmpty()) {
             return;
@@ -69,7 +69,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
     }
 
     private void routeMessageToClient(String clientId, PublishPacket packet, ByteBuffer encodedPacket) {
-        SocketChannel channel = clientIdToChannel.get(clientId);
+        SocketChannel channel = context.getClientChannel(clientId);
 
         if (channel != null) {
             sendPacketToOnlineClient(channel, encodedPacket);
@@ -90,7 +90,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
     }
 
     private void queueMessageForOfflineClient(String clientId, PublishPacket packet) {
-        Session persistentSession = persistentSessions.get(clientId);
+        Session persistentSession = context.getPersistentSession(clientId);
 
         if (persistentSession == null) {
             return;
