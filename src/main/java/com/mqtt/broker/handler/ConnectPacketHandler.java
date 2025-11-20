@@ -1,95 +1,94 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.Session;
+import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
+import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.util.Optional;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withAction;
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
+import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_ACCEPTED;
+import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
+import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED;
+import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION;
 
 @RequiredArgsConstructor
 @Slf4j
 public class ConnectPacketHandler implements MqttPacketHandler {
 
-    private static final int MQTT_3_1_1_VERSION = 4;
-    private static final String MQTT_PROTOCOL_NAME = "MQTT";
+    private static final int PROTOCOL_VERSION = 4; // 3.1.1 protocol version
+    private static final String PROTOCOL_NAME = "MQTT";
 
     private final BrokerContext context;
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof ConnectPacket connectPacket)) {
-            return empty();
-        }
+        ConnectPacket connectPacket = (ConnectPacket) packet;
 
-        // Check for protocol violation: multiple CONNECT packets from the same client
         if (context.getSession(clientChannel) != null) {
             log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
-            return withAction(java.nio.channels.SocketChannel::close);
+            return withAction(SocketChannel::close);
         }
 
         log.info("Received CONNECT packet: {}", connectPacket);
 
-        var variableHeader = connectPacket.getVariableHeader();
-
-        if (!MQTT_PROTOCOL_NAME.equals(variableHeader.protocolName()) || variableHeader.protocolVersion() != MQTT_3_1_1_VERSION) {
-            log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
-            return HandlerResult.withResponseAndAction(
-                    createConnAckPacket((byte) 0, 1),
-                    java.nio.channels.SocketChannel::close
-            );
+        var validationResult = validateConnection(connectPacket, clientChannel);
+        if (validationResult.isPresent()) {
+            return validationResult.get();
         }
 
         String clientId = connectPacket.getPayload().clientId();
-        boolean cleanSessionFlag = variableHeader.cleanSession();
-        int keepAlive = variableHeader.keepAlive();
-        byte sessionPresentFlag = 0;
-        Session session;
-        boolean hasPendingMessages = false;
-
+        var variableHeader = connectPacket.getVariableHeader();
+        
+        // Handle existing connection with same Client ID
         SocketChannel existingClientChannel = context.getClientChannel(clientId);
         if (existingClientChannel != null && existingClientChannel != clientChannel) {
             log.info("Client with ID {} already connected. Disconnecting old connection.", clientId);
             existingClientChannel.close();
         }
 
-        if (cleanSessionFlag) {
-            Session oldPersistentSession = context.removePersistentSession(clientId);
-            if (oldPersistentSession != null) {
-                context.getTopicTree().removeAllSubscriptionsFor(clientId);
-                oldPersistentSession.clearPendingMessages();
-            }
-            session = new Session(clientId, true, keepAlive);
-
+        Session session = resolveSession(clientId, variableHeader.cleanSession(), variableHeader.keepAlive());
+        byte sessionPresentFlag;
+        
+        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new one.
+        if (variableHeader.cleanSession()) {
+            sessionPresentFlag = 0;
         } else {
-            // Persistent session: restore if exists, otherwise create new
-            session = context.removePersistentSession(clientId);
-            if (session != null) {
+            // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from the current Session (as identified by the Client identifier).
+            if (context.getPersistentSession(clientId) != null) {
                 sessionPresentFlag = 1;
-                session.updateKeepAlive(keepAlive);
-                hasPendingMessages = session.getPendingMessagesStream().findAny().isPresent();
             } else {
-                session = new Session(clientId, false, keepAlive);
+                sessionPresentFlag = 0;
             }
+        }
+        
+        if (variableHeader.willFlag()) {
+            session.setWillMessage(new WillMessage(
+                    connectPacket.getPayload().willTopic(),
+                    connectPacket.getPayload().willMessage(),
+                    variableHeader.willRetain(),
+                    variableHeader.willQos()
+            ));
         }
 
         session.updateLastActivity();
         context.registerSession(clientChannel, session);
 
-        var connAckPacket = createConnAckPacket(sessionPresentFlag, 0);
+        var connAckPacket = createConnAckPacket(sessionPresentFlag, CONNECTION_ACCEPTED.getCode());
+        
+        boolean hasPendingMessages = !session.isCleanSession() && session.getPendingMessagesStream().findAny().isPresent();
 
         if (hasPendingMessages) {
             final Session sessionFinal = session;
@@ -98,6 +97,82 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         return withResponse(connAckPacket);
+    }
+
+    private Optional<HandlerResult> validateConnection(ConnectPacket connectPacket, SocketChannel clientChannel) throws IOException {
+        var variableHeader = connectPacket.getVariableHeader();
+
+        if (!isProtocolValid(variableHeader)) {
+            log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
+            return Optional.of(withResponseAndAction(
+                    createConnAckPacket((byte) 0, CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION.getCode()),
+                    SocketChannel::close
+            ));
+        }
+
+        if (!areConnectFlagsValid(variableHeader)) {
+             log.warn("Connection refused for {}: Invalid connect flags", clientChannel.getRemoteAddress());
+             return Optional.of(withAction(SocketChannel::close));
+        }
+
+        String clientId = connectPacket.getPayload().clientId();
+        if (!isClientIdValid(clientId)) {
+            log.warn("Connection refused for {}: Identifier rejected", clientChannel.getRemoteAddress());
+            return Optional.of(withResponseAndAction(
+                    createConnAckPacket((byte) 0, CONNECTION_REFUSED_IDENTIFIER_REJECTED.getCode()),
+                    SocketChannel::close
+            ));
+        }
+        
+        if (variableHeader.hasUsername()) {
+             String username = connectPacket.getPayload().username();
+             String password = connectPacket.getPayload().password();
+             if (!context.getUserRegistry().validate(username, password)) {
+                 log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
+                 return Optional.of(withResponseAndAction(
+                         createConnAckPacket((byte) 0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD.getCode()),
+                         SocketChannel::close
+                 ));
+             }
+        }
+        
+        return Optional.empty();
+    }
+
+    private Session resolveSession(String clientId, boolean cleanSession, int keepAlive) {
+        if (cleanSession) {
+            Session oldPersistentSession = context.removePersistentSession(clientId);
+            if (oldPersistentSession != null) {
+                context.getTopicTree().removeAllSubscriptionsFor(clientId);
+                oldPersistentSession.clearPendingMessages();
+            }
+            return new Session(clientId, true, keepAlive);
+        } else {
+            // Persistent session: restore if exists, otherwise create new
+            Session session = context.removePersistentSession(clientId);
+            if (session != null) {
+                session.updateKeepAlive(keepAlive);
+            } else {
+                session = new Session(clientId, false, keepAlive);
+            }
+            return session;
+        }
+    }
+
+    private boolean isProtocolValid(ConnectVariableHeader variableHeader) {
+        return PROTOCOL_NAME.equals(variableHeader.protocolName()) && variableHeader.protocolVersion() == PROTOCOL_VERSION;
+    }
+
+    private boolean areConnectFlagsValid(ConnectVariableHeader variableHeader) {
+        boolean willFlagValid = variableHeader.willFlag() || (variableHeader.willQos() == 0 && !variableHeader.willRetain());
+        boolean willQosValid = variableHeader.willQos() >= 0 && variableHeader.willQos() <= 2;
+        boolean usernameFlagValid = !variableHeader.hasPassword() || variableHeader.hasUsername();
+        
+        return willFlagValid && willQosValid && usernameFlagValid;
+    }
+
+    private boolean isClientIdValid(String clientId) {
+        return clientId != null && !clientId.isEmpty() && clientId.length() <= 23 && clientId.matches("[0-9a-zA-Z]+");
     }
 
     private ConnAckPacket createConnAckPacket(byte sessionPresent, int returnCode) {

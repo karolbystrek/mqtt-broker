@@ -1,6 +1,7 @@
 package com.mqtt.broker.context;
 
 import com.mqtt.broker.Session;
+import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
@@ -19,13 +20,16 @@ public class BrokerContext {
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, SocketChannel> clientIdToChannel;
     private final Map<String, Session> persistentSessions;
+    private final UserRegistry userRegistry;
 
     public BrokerContext(BrokerConfiguration config, 
                          TopicTree topicTree, 
-                         PendingMessageDeliveryService pendingMessageService) {
+                         PendingMessageDeliveryService pendingMessageService,
+                         UserRegistry userRegistry) {
         this.config = config;
         this.topicTree = topicTree;
         this.pendingMessageService = pendingMessageService;
+        this.userRegistry = userRegistry;
         
         this.activeSessions = new ConcurrentHashMap<>();
         this.clientIdToChannel = new ConcurrentHashMap<>();

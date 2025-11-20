@@ -1,5 +1,6 @@
 package com.mqtt.broker;
 
+import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.config.ConfigLoader;
 import com.mqtt.broker.context.BrokerContext;
@@ -19,8 +20,9 @@ public class Main {
         MqttPacketEncoder encoder = new MqttPacketEncoder();
         TopicTree topicTree = new TopicTree();
         PendingMessageDeliveryService pendingMessageService = new PendingMessageDeliveryService(encoder);
+        UserRegistry userRegistry = new UserRegistry("passwd");
         
-        BrokerContext context = new BrokerContext(config, topicTree, pendingMessageService);
+        BrokerContext context = new BrokerContext(config, topicTree, pendingMessageService, userRegistry);
         
         try (Broker broker = new Broker(config, context)) {
             broker.start();

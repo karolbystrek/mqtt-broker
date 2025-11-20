@@ -1,7 +1,7 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.ConnectPacket;
+import com.mqtt.broker.packet.MqttFixedHeader;
 
 import java.nio.ByteBuffer;
 
@@ -18,6 +18,9 @@ public interface ConnectPacketDecoder extends MqttPacketDecoderInterface {
         byte connectFlagsByte = body.get();
         boolean hasUsername = (connectFlagsByte & 0b1000_0000) != 0;
         boolean hasPassword = (connectFlagsByte & 0b0100_0000) != 0;
+        if (!hasUsername && hasPassword) {
+            throw new IllegalArgumentException("Password flag set without username flag");
+        }
         boolean willRetain = (connectFlagsByte & 0b0010_0000) != 0;
         int willQos = (connectFlagsByte & 0b0001_1000) >> 3;
         boolean willFlag = (connectFlagsByte & 0b0000_0100) != 0;

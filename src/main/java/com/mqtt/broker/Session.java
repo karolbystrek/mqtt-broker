@@ -3,6 +3,7 @@ package com.mqtt.broker;
 import com.mqtt.broker.packet.MqttQoS;
 import com.mqtt.broker.packet.PublishPacket;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Map;
 import java.util.Queue;
@@ -25,6 +26,11 @@ public class Session {
     private volatile int keepAliveSeconds;
     private final AtomicLong lastActivityTimestamp;
     private final Queue<PublishPacket> pendingMessages;
+
+    @Setter @Getter
+    private WillMessage willMessage;
+
+    public record WillMessage(String topic, String message, boolean retain, int qos) {}
 
     public Session(String clientId, boolean isCleanSession, int keepAliveSeconds) {
         this.clientId = clientId;
