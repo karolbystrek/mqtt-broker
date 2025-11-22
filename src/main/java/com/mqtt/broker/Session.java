@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
@@ -27,6 +28,7 @@ public class Session {
     private final AtomicLong lastActivityTimestamp;
     private final Queue<PublishPacket> pendingMessages;
     private final Map<Integer, PublishPacket> incomingMessages;
+    private final AtomicInteger packetIdGenerator;
 
     @Setter @Getter
     private WillMessage willMessage;
@@ -41,6 +43,16 @@ public class Session {
         this.lastActivityTimestamp = new AtomicLong(currentTimeMillis());
         this.pendingMessages = new ConcurrentLinkedQueue<>();
         this.incomingMessages = new ConcurrentHashMap<>();
+        this.packetIdGenerator = new AtomicInteger(1);
+    }
+
+    public int nextPacketId() {
+        int id = packetIdGenerator.getAndIncrement();
+        if (id > 65535) {
+            packetIdGenerator.set(1);
+            id = 1;
+        }
+        return id;
     }
 
     public void storeIncomingMessage(PublishPacket packet) {

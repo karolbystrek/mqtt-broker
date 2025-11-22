@@ -65,12 +65,16 @@ public class BrokerContext {
     public Session getPersistentSession(String clientId) {
         return persistentSessions.get(clientId);
     }
-
-    public void savePersistentSession(String clientId, Session session) {
-        persistentSessions.put(clientId, session);
-    }
     
     public Session removePersistentSession(String clientId) {
         return persistentSessions.remove(clientId);
+    }
+
+    public void closeSession(Session session) {
+        if (session.isCleanSession()) {
+            topicTree.removeAllSubscriptionsFor(session.getClientId());
+        } else {
+            persistentSessions.put(session.getClientId(), session);
+        }
     }
 }

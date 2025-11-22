@@ -35,12 +35,8 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
         
         session.setWillMessage(null); // discard will message
         
-        if (session.isCleanSession()) {
-            context.getTopicTree().removeAllSubscriptionsFor(clientId);
-        } else {
-            context.savePersistentSession(clientId, session);
-            log.info("Saved persistent session for client: {}", clientId);
-        }
+        context.closeSession(session);
+        log.info("Closed session for client: {}", clientId);
 
         context.removeSession(clientChannel);
 

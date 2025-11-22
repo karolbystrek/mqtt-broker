@@ -25,8 +25,6 @@ public class SubscribePacketHandler implements MqttPacketHandler {
 
     private final BrokerContext context;
 
-
-
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         var subscribePacket = (SubscribePacket) packet;
@@ -55,6 +53,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
                 .map(SubscribePacket.Subscription::topicFilter)
                 .toList();
 
-        return withResponseAndEvent(subAckPacket, new ClientSubscribedEvent(clientChannel, topicFilters));
+        var event = new ClientSubscribedEvent(clientChannel, topicFilters);
+        return withResponseAndEvent(subAckPacket, event);
     }
 }

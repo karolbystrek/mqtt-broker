@@ -3,15 +3,12 @@ package com.mqtt.broker.trie;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttQoS;
-import com.mqtt.broker.packet.PublishPacket;
 
 import static com.mqtt.broker.trie.TopicFilterValidator.validateTopicFilter;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Collections.emptyList;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 
 import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
@@ -31,7 +28,6 @@ public class TopicTree {
             return;
         }
         validateTopicFilter(topic);
-
 
         String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
         TrieNode currentNode = root;
@@ -86,7 +82,8 @@ public class TopicTree {
         return unmodifiableSet(matchingSubscribers);
     }
 
-    private void findMatchingSubscribers(TrieNode node, String[] levels, int levelIndex, Set<String> matchingSubscribers) {
+    private void findMatchingSubscribers(TrieNode node, String[] levels, int levelIndex,
+            Set<String> matchingSubscribers) {
         // check for '#' wildcard at this level
         TrieNode multiLevelWildcardNode = node.getChildren().get(MULTI_LEVEL_WILDCARD);
         if (multiLevelWildcardNode != null) {
@@ -104,7 +101,8 @@ public class TopicTree {
         // explore the '+' wildcard path
         TrieNode singleLevelWildcardNode = node.getChildren().get(SINGLE_LEVEL_WILDCARD);
         if (singleLevelWildcardNode != null) {
-            findMatchingSubscribers(singleLevelWildcardNode, levels, levelIndex + 1, matchingSubscribers);
+            findMatchingSubscribers(singleLevelWildcardNode, levels, levelIndex + 1,
+                    matchingSubscribers);
         }
 
         // explore the exact match path
@@ -113,11 +111,12 @@ public class TopicTree {
             findMatchingSubscribers(exactMatchNode, levels, levelIndex + 1, matchingSubscribers);
         }
     }
+
     public void retainMessage(String topic, byte[] payload, MqttQoS qos) {
         if (topic == null || topic.isEmpty()) {
             return;
         }
-        validateTopicFilter(topic); 
+        validateTopicFilter(topic);
 
         String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
         TrieNode currentNode = root;
@@ -135,32 +134,32 @@ public class TopicTree {
         }
     }
 
-    public List<PublishPacket> getRetainedMessagesMatching(String topicFilter) {
+    public List<RetainedMessageWithTopic> getRetainedMessagesMatching(String topicFilter) {
         if (topicFilter == null || topicFilter.isEmpty()) {
             return emptyList();
         }
 
         log.debug("Searching for retained messages matching: {}", topicFilter);
 
-        List<PublishPacket> retainedPackets = new ArrayList<>();
+        List<RetainedMessageWithTopic> retainedMessages = new ArrayList<>();
         String[] levels = topicFilter.split(TOPIC_LEVEL_SEPARATOR);
         
-        findRetainedMessages(root, levels, 0, retainedPackets, "");
+        findRetainedMessages(root, levels, 0, retainedMessages, "");
         
-        log.debug("Found {} retained messages for filter: {}", retainedPackets.size(), topicFilter);
-        return retainedPackets;
+        log.debug("Found {} retained messages for filter: {}", retainedMessages.size(), topicFilter);
+        return retainedMessages;
     }
 
-    private void findRetainedMessages(TrieNode node, String[] levels, int levelIndex, List<PublishPacket> retainedPackets, String currentPath) {
+    private void findRetainedMessages(TrieNode node, String[] levels, int levelIndex, List<RetainedMessageWithTopic> retainedMessages, String currentPath) {
         if (levelIndex == levels.length) {
-            addRetainedMessage(node, retainedPackets, currentPath);
+            appendRetainedMessage(node, retainedMessages, currentPath);
             return;
         }
 
         String level = levels[levelIndex];
 
         if (MULTI_LEVEL_WILDCARD.equals(level)) {
-            findAllRetainedMessages(node, retainedPackets, currentPath);
+            findAllRetainedMessages(node, retainedMessages, currentPath);
             return;
         }
 
@@ -171,7 +170,7 @@ public class TopicTree {
                     continue;
                 }
                 String nextPath = currentPath.isEmpty() ? childName : currentPath + "/" + childName;
-                findRetainedMessages(entry.getValue(), levels, levelIndex + 1, retainedPackets, nextPath);
+                findRetainedMessages(entry.getValue(), levels, levelIndex + 1, retainedMessages, nextPath);
             }
             return;
         }
@@ -179,39 +178,26 @@ public class TopicTree {
         TrieNode childNode = node.getChildren().get(level);
         if (childNode != null) {
             String nextPath = currentPath.isEmpty() ? level : currentPath + "/" + level;
-            findRetainedMessages(childNode, levels, levelIndex + 1, retainedPackets, nextPath);
+            findRetainedMessages(childNode, levels, levelIndex + 1, retainedMessages, nextPath);
         }
     }
 
-    private void findAllRetainedMessages(TrieNode node, List<PublishPacket> retainedPackets, String currentPath) {
-        addRetainedMessage(node, retainedPackets, currentPath);
+    private void findAllRetainedMessages(TrieNode node, List<RetainedMessageWithTopic> retainedMessages, String currentPath) {
+        appendRetainedMessage(node, retainedMessages, currentPath);
         
         for (var entry : node.getChildren().entrySet()) {
             String nextPath = currentPath.isEmpty() ? entry.getKey() : currentPath + "/" + entry.getKey();
-            findAllRetainedMessages(entry.getValue(), retainedPackets, nextPath);
+            findAllRetainedMessages(entry.getValue(), retainedMessages, nextPath);
         }
     }
 
-    private void addRetainedMessage(TrieNode node, List<PublishPacket> retainedPackets, String topicName) {
+    private void appendRetainedMessage(TrieNode node, List<RetainedMessageWithTopic> retainedMessages, String topicName) {
         RetainedMessage retained = node.getRetainedMessage();
         if (retained == null) {
             return;
         }
 
         log.info("Found retained message for topic: {}", topicName);
-
-        byte flags = 1; // Retain = 1
-        flags |= (retained.qos().getValue() << 1);
-        
-        var fixedHeader = new MqttFixedHeader(PUBLISH, flags, 0);
-        
-        int packetId = 1;
-        if (retained.qos() != MqttQoS.AT_MOST_ONCE) {
-            packetId = 1; // TODO: Use a proper Packet ID generator
-        }
-        
-        var variableHeader = new PublishPacket.PublishVariableHeader(topicName, packetId);
-        var packet = new PublishPacket(fixedHeader, variableHeader, retained.payload());
-        retainedPackets.add(packet);
+        retainedMessages.add(new RetainedMessageWithTopic(retained, topicName));
     }
 }

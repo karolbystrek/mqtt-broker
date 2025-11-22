@@ -4,10 +4,7 @@ import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.packet.PublishPacket;
-import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -21,14 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.extern.slf4j.Slf4j;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.util.Optional.ofNullable;
 
 import com.mqtt.broker.event.BrokerEventPublisher;
 import com.mqtt.broker.event.BrokerEventListener;
+import com.mqtt.broker.event.ConnectionLostEvent;
 
 @Slf4j
 public class Broker implements AutoCloseable {
@@ -160,41 +156,9 @@ public class Broker implements AutoCloseable {
 
     private void cleanupClient(SelectionKey key) {
         var clientChannel = (SocketChannel) key.channel();
-
-        Session session = context.getSession(clientChannel);
-        if (session != null) {
-            if (session.getWillMessage() != null) {
-                log.info("Client {} disconnected unexpectedly. Sending Will Message.", session.getClientId());
-                var willMessage = session.getWillMessage();
-                
-                byte flags = 0;
-                flags |= (willMessage.qos() << 1);
-                if (willMessage.retain()) {
-                    flags |= 1;
-                }
-                
-                var fixedHeader = new MqttFixedHeader(PUBLISH, flags, 0);
-                int packetId = 1;
-                if (willMessage.qos() > 0) {
-                    packetId = 2; // TODO: Use a proper Packet ID generator
-                }
-                
-                var variableHeader = new PublishVariableHeader(willMessage.topic(), packetId);
-                var payload = willMessage.message().getBytes(UTF_8);
-                
-                var publishPacket = new PublishPacket(fixedHeader, variableHeader, payload);
-                
-                context.getMessageDispatcher().dispatch(publishPacket);
-            }
-            
-            if (session.isCleanSession()) {
-                context.getTopicTree().removeAllSubscriptionsFor(session.getClientId());
-            } else {
-                context.savePersistentSession(session.getClientId(), session);
-                log.info("Saved persistent session for client: {}", session.getClientId());
-            }
-            context.removeSession(clientChannel);
-        }
+        var session = context.getSession(clientChannel);
+        
+        eventPublisher.publish(new ConnectionLostEvent(clientChannel, session));
 
         try {
             key.cancel();
@@ -203,7 +167,9 @@ public class Broker implements AutoCloseable {
             log.error("Error closing client channel: {}", e.getMessage());
         } finally {
             clientBuffers.remove(clientChannel);
-            context.removeSession(clientChannel);
+            if (session == null) {
+                context.removeSession(clientChannel);
+            }
         }
     }
 
