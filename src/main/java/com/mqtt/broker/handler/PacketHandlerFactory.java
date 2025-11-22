@@ -28,7 +28,7 @@ public class PacketHandlerFactory {
         handlers.put(PINGREQ, new PingReqPacketHandler());
         handlers.put(PUBLISH, new PublishPacketHandler(context));
         handlers.put(PUBACK, new PubAckPacketHandler());
-        handlers.put(PUBREL, new PubRelPacketHandler());
+        handlers.put(PUBREL, new PubRelPacketHandler(context));
         handlers.put(PUBREC, new PubRecPacketHandler());
         handlers.put(PUBCOMP, new PubCompPacketHandler());
         handlers.put(SUBSCRIBE, new SubscribePacketHandler(context));

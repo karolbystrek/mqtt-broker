@@ -26,6 +26,7 @@ public class Session {
     private volatile int keepAliveSeconds;
     private final AtomicLong lastActivityTimestamp;
     private final Queue<PublishPacket> pendingMessages;
+    private final Map<Integer, PublishPacket> incomingMessages;
 
     @Setter @Getter
     private WillMessage willMessage;
@@ -39,6 +40,15 @@ public class Session {
         this.keepAliveSeconds = keepAliveSeconds;
         this.lastActivityTimestamp = new AtomicLong(currentTimeMillis());
         this.pendingMessages = new ConcurrentLinkedQueue<>();
+        this.incomingMessages = new ConcurrentHashMap<>();
+    }
+
+    public void storeIncomingMessage(PublishPacket packet) {
+        incomingMessages.put(packet.getPacketIdentifier().orElseThrow(), packet);
+    }
+
+    public PublishPacket retrieveIncomingMessage(int packetId) {
+        return incomingMessages.remove(packetId);
     }
 
     public void addSubscription(String topicFilter, MqttQoS qos) {

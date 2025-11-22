@@ -11,9 +11,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 class TrieNode {
     private final ConcurrentHashMap<String, TrieNode> children;
     private final Set<String> subscribers;
-    
-    @Setter
-    private volatile RetainedMessage retainedMessage;
+    @Setter private RetainedMessage retainedMessage;
 
     public TrieNode() {
         this.children = new ConcurrentHashMap<>();

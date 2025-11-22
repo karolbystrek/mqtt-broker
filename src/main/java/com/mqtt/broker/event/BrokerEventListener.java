@@ -20,6 +20,7 @@ public class BrokerEventListener implements EventListener {
             case ClientConnectedEvent(var channel, var session) -> handleClientConnected(channel, session);
             case ClientSubscribedEvent(var channel, var topicFilters) -> handleClientSubscribed(channel, topicFilters);
             case CloseConnectionEvent(var channel) -> handleCloseConnection(channel);
+            case PublishEvent(var channel, var packet) -> context.getMessageDispatcher().dispatch(packet);
         }
     }
 

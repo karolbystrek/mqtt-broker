@@ -6,6 +6,7 @@ import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.event.PublishEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
 
@@ -31,16 +33,26 @@ public class PublishPacketHandler implements MqttPacketHandler {
 
         log.info("Handling PUBLISH packet: {}", publishPacket);
 
-        context.getMessageDispatcher().dispatch(publishPacket);
+        var session = context.getSession(clientChannel);
 
         return switch (publishPacket.getQosLevel()) {
             case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> withResponse(createPubAck(packetId)))
+                    .map(packetId -> {
+                        var pubAck = createPubAck(packetId);
+                        var event = new PublishEvent(clientChannel, publishPacket);
+                        return withResponseAndEvent(pubAck, event);
+                    })
                     .orElse(empty());
             case EXACTLY_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> withResponse(createPubRec(packetId)))
+                    .map(packetId -> {
+                        session.storeIncomingMessage(publishPacket);
+                        return withResponse(createPubRec(packetId));
+                    })
                     .orElse(empty());
-            case AT_MOST_ONCE -> empty(); // QoS 0 requires no response
+            case AT_MOST_ONCE -> {
+                context.getMessageDispatcher().dispatch(publishPacket);
+                yield empty();
+            }
         };
     }
 
@@ -50,7 +62,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
     }
 
     private PubRecPacket createPubRec(int packetId) {
-        var fixedHeader = new MqttFixedHeader(PUBREC, (byte) 0, 2);
+        var fixedHeader = new MqttFixedHeader(PUBREC, (byte) 0x0, 2);
         return new PubRecPacket(fixedHeader, packetId);
     }
 }

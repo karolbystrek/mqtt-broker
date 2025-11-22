@@ -39,6 +39,10 @@ public class UserRegistry {
     }
 
     public boolean validate(String username, String password) {
+        if (users.isEmpty()) { // No users registered, allow all
+            return true;
+        }
+
         if (username == null || password == null) {
             return false;
         }
