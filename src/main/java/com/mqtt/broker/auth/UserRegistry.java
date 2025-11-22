@@ -29,10 +29,10 @@ public class UserRegistry {
                 if (parts.length == 2) {
                     users.put(parts[0], parts[1]);
                 } else {
-                    log.warn("Invalid user entry in {}: {}", filePath, line);
+                    log.warn("Invalid user entry: {}", line);
                 }
             }
-            log.info("Loaded {} users from {}", users.size(), filePath);
+            log.info("Registered {} users", users.size());
         } catch (IOException e) {
             log.warn("Could not load users from {}: {}", filePath, e.getMessage());
         }

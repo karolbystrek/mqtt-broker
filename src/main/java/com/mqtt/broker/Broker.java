@@ -3,9 +3,11 @@ package com.mqtt.broker;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.handler.PacketHandlerFactory;
+import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -19,9 +21,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
 import static java.nio.channels.SelectionKey.OP_ACCEPT;
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.util.Optional.ofNullable;
+
+import com.mqtt.broker.event.BrokerEventPublisher;
+import com.mqtt.broker.event.BrokerEventListener;
 
 @Slf4j
 public class Broker implements AutoCloseable {
@@ -32,9 +39,9 @@ public class Broker implements AutoCloseable {
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder decoder;
-    private final MqttPacketEncoder encoder;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
+    private final BrokerEventPublisher eventPublisher;
 
     public Broker(BrokerConfiguration config, BrokerContext context) throws IOException {
         this.config = config;
@@ -42,9 +49,10 @@ public class Broker implements AutoCloseable {
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector, config);
         this.decoder = new MqttPacketDecoder();
-        this.encoder = new MqttPacketEncoder();
         this.handlerFactory = new PacketHandlerFactory(context);
         this.clientBuffers = new ConcurrentHashMap<>();
+        this.eventPublisher = new BrokerEventPublisher();
+        eventPublisher.addListener(new BrokerEventListener(context));
     }
 
     public void start() {
@@ -113,16 +121,11 @@ public class Broker implements AutoCloseable {
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
         var handlerResult = handler.handle(clientChannel, packet);
 
-        if (handlerResult.responsePacket().isPresent()) {
-            var responseBuffer = encoder.encode(handlerResult.responsePacket().get());
-            while (responseBuffer.hasRemaining()) {
-                clientChannel.write(responseBuffer);
-            }
-        }
+        handlerResult.responsePacket().ifPresent(
+            responsePacket -> context.getPacketSender().send(clientChannel, responsePacket)
+        );
 
-        if (handlerResult.postAction().isPresent()) {
-            handlerResult.postAction().get().execute(clientChannel);
-        }
+        handlerResult.event().ifPresent(eventPublisher::publish);
     }
 
     private void acceptConnection(SelectionKey key) throws IOException {
@@ -160,6 +163,30 @@ public class Broker implements AutoCloseable {
 
         Session session = context.getSession(clientChannel);
         if (session != null) {
+            if (session.getWillMessage() != null) {
+                log.info("Client {} disconnected unexpectedly. Sending Will Message.", session.getClientId());
+                var willMessage = session.getWillMessage();
+                
+                byte flags = 0;
+                flags |= (willMessage.qos() << 1);
+                if (willMessage.retain()) {
+                    flags |= 1;
+                }
+                
+                var fixedHeader = new MqttFixedHeader(PUBLISH, flags, 0);
+                int packetId = 1;
+                if (willMessage.qos() > 0) {
+                    packetId = 2; // TODO: Use a proper Packet ID generator
+                }
+                
+                var variableHeader = new PublishVariableHeader(willMessage.topic(), packetId);
+                var payload = willMessage.message().getBytes(UTF_8);
+                
+                var publishPacket = new PublishPacket(fixedHeader, variableHeader, payload);
+                
+                context.getMessageDispatcher().dispatch(publishPacket);
+            }
+            
             if (session.isCleanSession()) {
                 context.getTopicTree().removeAllSubscriptionsFor(session.getClientId());
             } else {

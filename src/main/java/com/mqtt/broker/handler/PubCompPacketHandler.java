@@ -17,9 +17,6 @@ public class PubCompPacketHandler implements MqttPacketHandler {
         var pubCompPacket = (PubCompPacket) packet;
 
         log.info("Handling PUBCOMP packet: {}", pubCompPacket);
-        // MQTT 3.1.1: PUBCOMP completes QoS 2 message delivery from broker to subscriber
-        // No response needed - this is the final packet in QoS 2 flow
-        // TODO: Remove packet from pending messages tracking
 
         return empty();
     }

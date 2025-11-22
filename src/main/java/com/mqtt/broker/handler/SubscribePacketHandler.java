@@ -6,6 +6,7 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
+import com.mqtt.broker.event.ClientSubscribedEvent;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.List;
@@ -15,7 +16,7 @@ import static com.mqtt.broker.handler.HandlerResult.empty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 
 @RequiredArgsConstructor
@@ -48,6 +49,12 @@ public class SubscribePacketHandler implements MqttPacketHandler {
                 .toList();
 
         var fixedHeader = new MqttFixedHeader(SUBACK, (byte) 0, 2 + grantedQosLevels.size());
-        return withResponse(new SubAckPacket(fixedHeader, subscribePacket.getPacketIdentifier(), grantedQosLevels));
+        var subAckPacket = new SubAckPacket(fixedHeader, subscribePacket.getPacketIdentifier(), grantedQosLevels);
+
+        List<String> topicFilters = subscribePacket.getSubscriptions().stream()
+                .map(SubscribePacket.Subscription::topicFilter)
+                .toList();
+
+        return withResponseAndEvent(subAckPacket, new ClientSubscribedEvent(clientChannel, topicFilters));
     }
 }

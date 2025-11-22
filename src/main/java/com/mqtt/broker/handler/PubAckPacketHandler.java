@@ -19,10 +19,6 @@ public final class PubAckPacketHandler implements MqttPacketHandler {
 
         log.info("Received PUBACK packet: {}", pubAckPacket);
 
-        // MQTT 3.1.1: PUBACK completes QoS 1 message delivery from broker to subscriber
-        // No response needed - this is the final packet in QoS 1 flow
-        // TODO: Remove packet from pending messages tracking
-
         return empty();
     }
 }

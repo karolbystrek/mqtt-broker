@@ -21,8 +21,6 @@ public class PubRecPacketHandler implements MqttPacketHandler {
 
         log.info("Received PUBREC packet: {}", pubRecPacket);
 
-        // MQTT 3.1.1: When broker receives PUBREC from subscriber, respond with PUBREL
-        // This continues the QoS 2 flow when broker is acting as publisher
         var fixedHeader = new MqttFixedHeader(PUBREL, (byte) 2, 2);
         return withResponse(new PubRelPacket(fixedHeader, pubRecPacket.getPacketIdentifier()));
     }

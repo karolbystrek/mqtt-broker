@@ -5,6 +5,7 @@ import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
+import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
@@ -14,10 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Optional;
+import com.mqtt.broker.event.ClientConnectedEvent;
+import com.mqtt.broker.event.CloseConnectionEvent;
 
-import static com.mqtt.broker.handler.HandlerResult.withAction;
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
+import static com.mqtt.broker.handler.HandlerResult.withEvent;
 import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_ACCEPTED;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
@@ -39,7 +41,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         if (context.getSession(clientChannel) != null) {
             log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
-            return withAction(SocketChannel::close);
+            return withEvent(new CloseConnectionEvent(clientChannel));
         }
 
         log.info("Received CONNECT packet: {}", connectPacket);
@@ -86,17 +88,9 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         session.updateLastActivity();
         context.registerSession(clientChannel, session);
 
-        var connAckPacket = createConnAckPacket(sessionPresentFlag, CONNECTION_ACCEPTED.getCode());
+        var connAckPacket = createConnAckPacket(sessionPresentFlag, CONNECTION_ACCEPTED);
         
-        boolean hasPendingMessages = !session.isCleanSession() && session.getPendingMessagesStream().findAny().isPresent();
-
-        if (hasPendingMessages) {
-            final Session sessionFinal = session;
-            PostConnectionAction deliveryAction = channel -> context.getPendingMessageService().deliverPendingMessages(channel, sessionFinal);
-            return withResponseAndAction(connAckPacket, deliveryAction);
-        }
-
-        return withResponse(connAckPacket);
+        return withResponseAndEvent(connAckPacket, new ClientConnectedEvent(clientChannel, session));
     }
 
     private Optional<HandlerResult> validateConnection(ConnectPacket connectPacket, SocketChannel clientChannel) throws IOException {
@@ -104,23 +98,23 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         if (!isProtocolValid(variableHeader)) {
             log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
-            return Optional.of(withResponseAndAction(
-                    createConnAckPacket((byte) 0, CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION.getCode()),
-                    SocketChannel::close
+            return Optional.of(withResponseAndEvent(
+                    createConnAckPacket(0, CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION),
+                    new CloseConnectionEvent(clientChannel)
             ));
         }
 
         if (!areConnectFlagsValid(variableHeader)) {
              log.warn("Connection refused for {}: Invalid connect flags", clientChannel.getRemoteAddress());
-             return Optional.of(withAction(SocketChannel::close));
+             return Optional.of(withEvent(new CloseConnectionEvent(clientChannel)));
         }
 
         String clientId = connectPacket.getPayload().clientId();
         if (!isClientIdValid(clientId)) {
             log.warn("Connection refused for {}: Identifier rejected", clientChannel.getRemoteAddress());
-            return Optional.of(withResponseAndAction(
-                    createConnAckPacket((byte) 0, CONNECTION_REFUSED_IDENTIFIER_REJECTED.getCode()),
-                    SocketChannel::close
+            return Optional.of(withResponseAndEvent(
+                    createConnAckPacket(0, CONNECTION_REFUSED_IDENTIFIER_REJECTED),
+                    new CloseConnectionEvent(clientChannel)
             ));
         }
         
@@ -129,9 +123,9 @@ public class ConnectPacketHandler implements MqttPacketHandler {
              String password = connectPacket.getPayload().password();
              if (!context.getUserRegistry().validate(username, password)) {
                  log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
-                 return Optional.of(withResponseAndAction(
-                         createConnAckPacket((byte) 0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD.getCode()),
-                         SocketChannel::close
+                 return Optional.of(withResponseAndEvent(
+                         createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
+                         new CloseConnectionEvent(clientChannel)
                  ));
              }
         }
@@ -175,8 +169,8 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         return clientId != null && !clientId.isEmpty() && clientId.length() <= 23 && clientId.matches("[0-9a-zA-Z]+");
     }
 
-    private ConnAckPacket createConnAckPacket(byte sessionPresent, int returnCode) {
-        var connAckHeader = new ConnAckVariableHeader(sessionPresent, returnCode);
+    private ConnAckPacket createConnAckPacket(int sessionPresent, MqttConnectReturnCode returnCode) {
+        var connAckHeader = new ConnAckVariableHeader((byte) sessionPresent, returnCode.getCode());
         return new ConnAckPacket(new MqttFixedHeader(CONNACK, (byte) 0, 2), connAckHeader);
     }
 }

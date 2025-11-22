@@ -3,6 +3,8 @@ package com.mqtt.broker.context;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.service.MessageDispatcher;
+import com.mqtt.broker.service.MqttPacketSender;
 import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.Getter;
@@ -16,21 +18,25 @@ public class BrokerContext {
 
     private final BrokerConfiguration config;
     private final TopicTree topicTree;
+    private final MqttPacketSender packetSender;
     private final PendingMessageDeliveryService pendingMessageService;
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, SocketChannel> clientIdToChannel;
     private final Map<String, Session> persistentSessions;
     private final UserRegistry userRegistry;
+    private final MessageDispatcher messageDispatcher;
 
     public BrokerContext(BrokerConfiguration config, 
                          TopicTree topicTree, 
-                         PendingMessageDeliveryService pendingMessageService,
-                         UserRegistry userRegistry) {
+                         UserRegistry userRegistry,
+                         MqttPacketSender packetSender,
+                         PendingMessageDeliveryService pendingMessageService) {
         this.config = config;
         this.topicTree = topicTree;
-        this.pendingMessageService = pendingMessageService;
         this.userRegistry = userRegistry;
-        
+        this.packetSender = packetSender;
+        this.pendingMessageService = pendingMessageService;
+        this.messageDispatcher = new MessageDispatcher(this, packetSender);
         this.activeSessions = new ConcurrentHashMap<>();
         this.clientIdToChannel = new ConcurrentHashMap<>();
         this.persistentSessions = new ConcurrentHashMap<>();

@@ -1,8 +1,6 @@
 package com.mqtt.broker.handler;
 
-import com.mqtt.broker.Session;
 import com.mqtt.broker.context.BrokerContext;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
@@ -12,25 +10,18 @@ import com.mqtt.broker.packet.PublishPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withAction;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndAction;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
-import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 
 @RequiredArgsConstructor
 @Slf4j
 public class PublishPacketHandler implements MqttPacketHandler {
 
-    private final MqttPacketEncoder encoder = new MqttPacketEncoder();
     private final BrokerContext context;
-
-
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
@@ -40,66 +31,17 @@ public class PublishPacketHandler implements MqttPacketHandler {
 
         log.info("Handling PUBLISH packet: {}", publishPacket);
 
-        PostConnectionAction forwardAction = channel -> forwardToSubscribers(publishPacket);
+        context.getMessageDispatcher().dispatch(publishPacket);
 
         return switch (publishPacket.getQosLevel()) {
             case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> withResponseAndAction(createPubAck(packetId), forwardAction))
-                    .orElse(withAction(forwardAction));
+                    .map(packetId -> withResponse(createPubAck(packetId)))
+                    .orElse(empty());
             case EXACTLY_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> withResponseAndAction(createPubRec(packetId), forwardAction))
-                    .orElse(withAction(forwardAction));
-            default -> withAction(forwardAction); // QoS 0 requires no response but still forwards
+                    .map(packetId -> withResponse(createPubRec(packetId)))
+                    .orElse(empty());
+            case AT_MOST_ONCE -> empty(); // QoS 0 requires no response
         };
-    }
-
-    private void forwardToSubscribers(PublishPacket packet) {
-        var topic = packet.getVariableHeader().topicName();
-        var subscribedClientIds = context.getTopicTree().getSubscribersFor(topic);
-
-        if (subscribedClientIds.isEmpty()) {
-            return;
-        }
-
-        var encodedPacket = encoder.encode(packet);
-
-        subscribedClientIds.forEach(clientId ->
-                routeMessageToClient(clientId, packet, encodedPacket)
-        );
-    }
-
-    private void routeMessageToClient(String clientId, PublishPacket packet, ByteBuffer encodedPacket) {
-        SocketChannel channel = context.getClientChannel(clientId);
-
-        if (channel != null) {
-            sendPacketToOnlineClient(channel, encodedPacket);
-        } else {
-            queueMessageForOfflineClient(clientId, packet);
-        }
-    }
-
-    private void sendPacketToOnlineClient(SocketChannel channel, ByteBuffer encodedPacket) {
-        try {
-            var buffer = encodedPacket.duplicate();
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-        } catch (IOException e) {
-            log.error("Failed to send PUBLISH packet to online client: {}", e.getMessage());
-        }
-    }
-
-    private void queueMessageForOfflineClient(String clientId, PublishPacket packet) {
-        Session persistentSession = context.getPersistentSession(clientId);
-
-        if (persistentSession == null) {
-            return;
-        }
-
-        if (packet.getQosLevel() != AT_MOST_ONCE) { // qos 1 and 2 should be queued
-            log.info("Queuing PUBLISH packet for offline client: {}", clientId);
-            persistentSession.enqueuePendingMessage(packet);
-        }
     }
 
     private PubAckPacket createPubAck(int packetId) {

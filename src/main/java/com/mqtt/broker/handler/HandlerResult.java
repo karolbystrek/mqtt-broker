@@ -3,19 +3,20 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.packet.MqttPacket;
 
 import java.util.Optional;
+import com.mqtt.broker.event.BrokerEvent;
 
-public record HandlerResult(Optional<MqttPacket> responsePacket, Optional<PostConnectionAction> postAction) {
+public record HandlerResult(Optional<MqttPacket> responsePacket, Optional<BrokerEvent> event) {
 
     public static HandlerResult withResponse(MqttPacket packet) {
         return new HandlerResult(Optional.of(packet), Optional.empty());
     }
 
-    public static HandlerResult withResponseAndAction(MqttPacket packet, PostConnectionAction action) {
-        return new HandlerResult(Optional.of(packet), Optional.of(action));
+    public static HandlerResult withResponseAndEvent(MqttPacket packet, BrokerEvent event) {
+        return new HandlerResult(Optional.of(packet), Optional.of(event));
     }
 
-    public static HandlerResult withAction(PostConnectionAction action) {
-        return new HandlerResult(Optional.empty(), Optional.of(action));
+    public static HandlerResult withEvent(BrokerEvent event) {
+        return new HandlerResult(Optional.empty(), Optional.of(event));
     }
 
     public static HandlerResult empty() {

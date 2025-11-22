@@ -10,8 +10,8 @@ import java.nio.channels.SocketChannel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withAction;
+import com.mqtt.broker.event.CloseConnectionEvent;
+import static com.mqtt.broker.handler.HandlerResult.withEvent;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -28,10 +28,13 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
         Session session = context.getSession(clientChannel);
         if (session == null) {
             log.warn("No active session found for disconnecting client");
-            return withAction(java.nio.channels.SocketChannel::close);
+            return withEvent(new CloseConnectionEvent(clientChannel));
         }
 
         String clientId = session.getClientId();
+        
+        session.setWillMessage(null); // discard will message
+        
         if (session.isCleanSession()) {
             context.getTopicTree().removeAllSubscriptionsFor(clientId);
         } else {
@@ -41,6 +44,6 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
 
         context.removeSession(clientChannel);
 
-        return empty();
+        return withEvent(new CloseConnectionEvent(clientChannel));
     }
 }

@@ -4,10 +4,12 @@ import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.config.ConfigLoader;
 import com.mqtt.broker.context.BrokerContext;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
-import com.mqtt.broker.service.PendingMessageDeliveryService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.extern.slf4j.Slf4j;
+
+import com.mqtt.broker.encoder.MqttPacketEncoder;
+import com.mqtt.broker.service.MqttPacketSender;
+import com.mqtt.broker.service.PendingMessageDeliveryService;
 
 import java.io.IOException;
 
@@ -17,12 +19,15 @@ public class Main {
     public static void main(String[] args) {
         BrokerConfiguration config = ConfigLoader.load();
         
-        MqttPacketEncoder encoder = new MqttPacketEncoder();
         TopicTree topicTree = new TopicTree();
-        PendingMessageDeliveryService pendingMessageService = new PendingMessageDeliveryService(encoder);
         UserRegistry userRegistry = new UserRegistry("passwd");
         
-        BrokerContext context = new BrokerContext(config, topicTree, pendingMessageService, userRegistry);
+        MqttPacketEncoder encoder = new MqttPacketEncoder();
+        MqttPacketSender packetSender = new MqttPacketSender(encoder);
+        PendingMessageDeliveryService pendingMessageService = new PendingMessageDeliveryService(packetSender);
+        
+        BrokerContext context = new BrokerContext(config, topicTree, userRegistry, packetSender, pendingMessageService );
+        
         
         try (Broker broker = new Broker(config, context)) {
             broker.start();
