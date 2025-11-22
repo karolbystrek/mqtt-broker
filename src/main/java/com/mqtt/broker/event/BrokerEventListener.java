@@ -58,7 +58,13 @@ public class BrokerEventListener implements EventListener {
                 byte flags = 1; // Retain = 1
                 flags |= (byte) (retainedMsg.qos().getValue() << 1);
 
-                var fixedHeader = new MqttFixedHeader(PUBLISH, flags, 0);
+                int variableHeaderLength = 2 + topic.getBytes(UTF_8).length;
+                if (retainedMsg.qos().getValue() > 0) {
+                    variableHeaderLength += 2;
+                }
+                int remainingLength = variableHeaderLength + retainedMsg.payload().length;
+
+                var fixedHeader = new MqttFixedHeader(PUBLISH, flags, remainingLength);
 
                 int packetId = 0;
                 if (retainedMsg.qos().getValue() > 0 && session != null) {
@@ -88,14 +94,20 @@ public class BrokerEventListener implements EventListener {
                 flags |= 1;
             }
 
-            var fixedHeader = new MqttFixedHeader(PUBLISH, flags, 0);
+            var payload = willMessage.message().getBytes(UTF_8);
+            int variableHeaderLength = 2 + willMessage.topic().getBytes(UTF_8).length;
+            if (willMessage.qos() > 0) {
+                variableHeaderLength += 2;
+            }
+            int remainingLength = variableHeaderLength + payload.length;
+
+            var fixedHeader = new MqttFixedHeader(PUBLISH, flags, remainingLength);
             int packetId = 0;
             if (willMessage.qos() > 0) {
                 packetId = session.nextPacketId();
             }
 
             var variableHeader = new PublishVariableHeader(willMessage.topic(), packetId);
-            var payload = willMessage.message().getBytes(UTF_8);
 
             var publishPacket = new PublishPacket(fixedHeader, variableHeader, payload);
 

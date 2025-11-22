@@ -90,7 +90,7 @@ This phase introduces features that make the broker more robust and compliant wi
     * If `CleanSession` is `0`, the session is persistent. When the client disconnects, you must preserve its session
       data (especially its subscriptions).
     * When a client reconnects with the same `ClientID` and `CleanSession=0`, you must restore its previous session.
-- [ ] **Step 10: Implement Retained Messages**
+- [x] **Step 10: Implement Retained Messages**
     * Create a broker-wide storage map (e.g., `Map<String, MqttMessage>`) for retained messages.
     * When a `PUBLISH` packet arrives with the `RETAIN` flag set to `true`, store its message in that map, using the
       topic as the key.
@@ -101,16 +101,9 @@ This phase introduces features that make the broker more robust and compliant wi
 
 This final phase addresses your specific requirements for user accounts and topic management.
 
-- [ ] **Step 11: Implement User Authentication**
+- [x] **Step 11: Implement User Authentication**
     * In your `CONNECT` handler, check for the `User Name Flag` and `Password Flag`.
     * If they are set, parse the username and password from the packet's payload.
     * Implement a simple authentication service (it can start as an in-memory map of users) to validate the credentials.
     * If authentication fails, reject the connection with a `CONNACK` code `0x04` (Bad user name or password). This is
       the foundation for pairing devices with user accounts.
-- [ ] **Step 12: Build an Administrative API for Topic Management**
-    * Expose a simple HTTP API alongside your MQTT server. You can use Java's built-in `HttpServer` or a lightweight
-      framework for this.
-    * Create endpoints that allow authorized third-party systems to manage topics or user permissions. For example:
-        * `POST /api/users`: Create a new user account.
-        * `POST /api/permissions`: Grant a user publish/subscribe access to a topic pattern.
-    * This API provides the external control you need without cluttering the MQTT protocol itself.
