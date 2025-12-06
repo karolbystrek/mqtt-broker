@@ -28,6 +28,6 @@ public final class SubscribePacket extends MqttPacket {
         this.subscriptions = subscriptions;
     }
 
-    public record Subscription(String topicFilter, MqttQoS qos) {
+    public record Subscription(String topic, MqttQoS qos) {
     }
 }

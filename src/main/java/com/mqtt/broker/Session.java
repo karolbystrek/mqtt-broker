@@ -22,7 +22,9 @@ public class Session {
 
     private static final int MAX_PENDING_MESSAGES = 1000;
 
-    final String clientId;
+    private final String clientId;
+    @Getter
+    private final String username;
     private final Map<String, MqttQoS> subscriptions;
     private final boolean isCleanSession;
     private volatile int keepAliveSeconds;
@@ -36,13 +38,14 @@ public class Session {
     public record WillMessage(String topic, String message, boolean retain, int qos) {
     }
 
-    public Session(String clientId, boolean isCleanSession, int keepAliveSeconds) {
-        this(clientId, isCleanSession, keepAliveSeconds, emptyMap(), emptyList());
+    public Session(String clientId, String username, boolean isCleanSession, int keepAliveSeconds) {
+        this(clientId, username, isCleanSession, keepAliveSeconds, emptyMap(), emptyList());
     }
 
-    public Session(String clientId, boolean isCleanSession, int keepAliveSeconds,
+    public Session(String clientId, String username, boolean isCleanSession, int keepAliveSeconds,
                    Map<String, MqttQoS> subscriptions, List<PublishPacket> pendingMessages) {
         this.clientId = clientId;
+        this.username = username;
         this.subscriptions = new ConcurrentHashMap<>(subscriptions);
         this.isCleanSession = isCleanSession;
         this.keepAliveSeconds = keepAliveSeconds;

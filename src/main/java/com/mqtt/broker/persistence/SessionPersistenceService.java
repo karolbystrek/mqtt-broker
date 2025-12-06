@@ -44,7 +44,7 @@ public class SessionPersistenceService {
     }
 
     public Map<String, Session> load() {
-        if (!file.exists()) {
+        if (!file.exists() || file.length() == 0) {
             log.info("No session storage file found at {}, starting with empty sessions", STORAGE_FILE);
             return emptyMap();
         }

@@ -1,13 +1,9 @@
 [ {
   "clientId" : "klientid",
+  "username" : "user",
   "subscriptions" : {
-    "testtopic/#" : "EXACTLY_ONCE"
-  },
-  "pendingMessages" : [ ]
-}, {
-  "clientId" : "klientid2",
-  "subscriptions" : {
-    "testtopic/#" : "AT_LEAST_ONCE"
+    "readonly/#" : "EXACTLY_ONCE",
+    "readwrite/#" : "EXACTLY_ONCE"
   },
   "pendingMessages" : [ ]
 } ]

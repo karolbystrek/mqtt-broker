@@ -1,0 +1,20 @@
+[
+  {
+    "username": "user",
+    "password": "password",
+    "permissions": [
+      {
+        "topic": "readwrite/#",
+        "access": "READ_WRITE"
+      },
+      {
+        "topic": "readonly/#",
+        "access": "READ"
+      },
+      {
+        "topic": "writeonly/#",
+        "access": "WRITE"
+      }
+    ]
+  }
+]

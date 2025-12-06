@@ -11,6 +11,7 @@ import static java.util.Collections.emptyMap;
 
 public record SessionDTO(
         String clientId,
+        String username,
         Map<String, MqttQoS> subscriptions,
         List<PublishPacketDTO> pendingMessages
 ) {

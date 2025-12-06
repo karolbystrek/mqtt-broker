@@ -53,6 +53,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         String clientId = connectPacket.getPayload().clientId();
+        String username = connectPacket.getPayload().username();
         var variableHeader = connectPacket.getVariableHeader();
 
         // Handle existing connection with same Client ID
@@ -62,7 +63,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
             existingClientChannel.close();
         }
 
-        Session session = resolveSession(clientId, variableHeader.cleanSession(), variableHeader.keepAlive());
+        var session = resolveSession(clientId, username, variableHeader.cleanSession(), variableHeader.keepAlive());
         byte sessionPresentFlag;
 
         // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new one.
@@ -120,9 +121,9 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         if (variableHeader.hasUsername()) {
-            String username = connectPacket.getPayload().username();
-            String password = connectPacket.getPayload().password();
-            if (!context.getUserRegistry().validate(username, password)) {
+            var username = connectPacket.getPayload().username();
+            var password = connectPacket.getPayload().password();
+            if (!context.getUserRegistry().authenticate(username, password)) {
                 log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
                 return Optional.of(withResponseAndEvent(
                         createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
@@ -134,21 +135,21 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         return Optional.empty();
     }
 
-    private Session resolveSession(String clientId, boolean cleanSession, int keepAlive) {
+    private Session resolveSession(String clientId, String username, boolean cleanSession, int keepAlive) {
         if (cleanSession) {
             Session oldPersistentSession = context.removePersistentSession(clientId);
             if (oldPersistentSession != null) {
                 context.getTopicTree().removeAllSubscriptionsFor(clientId);
                 oldPersistentSession.clearPendingMessages();
             }
-            return new Session(clientId, true, keepAlive);
+            return new Session(clientId, username, true, keepAlive);
         } else {
             // Persistent session: restore if exists, otherwise create new
             Session session = context.removePersistentSession(clientId);
             if (session != null) {
                 session.updateKeepAlive(keepAlive);
             } else {
-                session = new Session(clientId, false, keepAlive);
+                session = new Session(clientId, username, false, keepAlive);
             }
             return session;
         }

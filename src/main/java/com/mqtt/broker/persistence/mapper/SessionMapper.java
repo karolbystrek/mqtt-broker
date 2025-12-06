@@ -24,6 +24,7 @@ public final class SessionMapper {
 
         return new SessionDTO(
                 session.getClientId(),
+                session.getUsername(),
                 session.getSubscriptions(),
                 pendingMessageDTOs
         );
@@ -39,6 +40,7 @@ public final class SessionMapper {
 
         return new Session(
                 dto.clientId(),
+                dto.username(),
                 false, // Persisted sessions are always non-clean sessions
                 0,     // Keep alive will be updated on reconnect
                 dto.subscriptions(),

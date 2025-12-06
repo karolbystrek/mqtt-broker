@@ -1,18 +1,17 @@
 package com.mqtt.broker.trie;
 
+import com.mqtt.broker.packet.MqttQoS;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-import com.mqtt.broker.packet.MqttQoS;
-
-import static com.mqtt.broker.trie.TopicFilterValidator.validateTopicFilter;
+import static com.mqtt.broker.trie.TopicValidator.validateTopic;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
-import static java.util.Collections.emptyList;
-
-import lombok.extern.slf4j.Slf4j;
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 public class TopicTree {
@@ -27,7 +26,7 @@ public class TopicTree {
         if (topic == null || topic.isEmpty()) {
             return;
         }
-        validateTopicFilter(topic);
+        validateTopic(topic);
 
         String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
         TrieNode currentNode = root;
@@ -42,7 +41,7 @@ public class TopicTree {
         if (topic == null || topic.isEmpty()) {
             return;
         }
-        validateTopicFilter(topic);
+        validateTopic(topic);
 
         String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
         TrieNode currentNode = root;
@@ -83,7 +82,7 @@ public class TopicTree {
     }
 
     private void findMatchingSubscribers(TrieNode node, String[] levels, int levelIndex,
-            Set<String> matchingSubscribers) {
+                                         Set<String> matchingSubscribers) {
         // check for '#' wildcard at this level
         TrieNode multiLevelWildcardNode = node.getChildren().get(MULTI_LEVEL_WILDCARD);
         if (multiLevelWildcardNode != null) {
@@ -116,7 +115,7 @@ public class TopicTree {
         if (topic == null || topic.isEmpty()) {
             return;
         }
-        validateTopicFilter(topic);
+        validateTopic(topic);
 
         String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
         TrieNode currentNode = root;
@@ -134,19 +133,19 @@ public class TopicTree {
         }
     }
 
-    public List<RetainedMessageWithTopic> getRetainedMessagesMatching(String topicFilter) {
-        if (topicFilter == null || topicFilter.isEmpty()) {
+    public List<RetainedMessageWithTopic> getRetainedMessagesMatching(String topic) {
+        if (topic == null || topic.isEmpty()) {
             return emptyList();
         }
 
-        log.debug("Searching for retained messages matching: {}", topicFilter);
+        log.debug("Searching for retained messages matching: {}", topic);
 
         List<RetainedMessageWithTopic> retainedMessages = new ArrayList<>();
-        String[] levels = topicFilter.split(TOPIC_LEVEL_SEPARATOR);
-        
+        String[] levels = topic.split(TOPIC_LEVEL_SEPARATOR);
+
         findRetainedMessages(root, levels, 0, retainedMessages, "");
-        
-        log.debug("Found {} retained messages for filter: {}", retainedMessages.size(), topicFilter);
+
+        log.debug("Found {} retained messages for topic: {}", retainedMessages.size(), topic);
         return retainedMessages;
     }
 
@@ -184,7 +183,7 @@ public class TopicTree {
 
     private void findAllRetainedMessages(TrieNode node, List<RetainedMessageWithTopic> retainedMessages, String currentPath) {
         appendRetainedMessage(node, retainedMessages, currentPath);
-        
+
         for (var entry : node.getChildren().entrySet()) {
             String nextPath = currentPath.isEmpty() ? entry.getKey() : currentPath + "/" + entry.getKey();
             findAllRetainedMessages(entry.getValue(), retainedMessages, nextPath);

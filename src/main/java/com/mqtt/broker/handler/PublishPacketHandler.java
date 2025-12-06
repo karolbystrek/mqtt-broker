@@ -1,13 +1,12 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.event.PublishEvent;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
-import com.mqtt.broker.event.PublishEvent;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +34,12 @@ public class PublishPacketHandler implements MqttPacketHandler {
         log.info("Handling PUBLISH packet: {}", publishPacket);
 
         var session = context.getSession(clientChannel);
+
+        if (!context.getUserRegistry().canPublish(session.getUsername(), publishPacket.getVariableHeader().topicName())) {
+            log.warn("Client '{}' is not authorized to publish to topic '{}'.",
+                    session.getClientId(), publishPacket.getVariableHeader().topicName());
+            return empty();
+        }
 
         return switch (publishPacket.getQosLevel()) {
             case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()

@@ -2,14 +2,14 @@ package com.mqtt.broker.trie;
 
 import static java.util.Objects.requireNonNull;
 
-public class TopicFilterValidator {
+public class TopicValidator {
 
     private static final String SINGLE_LEVEL_WILDCARD = "+";
     private static final String MULTI_LEVEL_WILDCARD = "#";
     private static final String TOPIC_LEVEL_SEPARATOR = "/";
     private static final int MAX_TOPIC_LENGTH = 65535;
 
-    public static void validateTopicFilter(String topicFilter) {
+    public static void validateTopic(String topicFilter) {
         requireNonNull(topicFilter, "Topic filter cannot be null");
 
         if (topicFilter.isEmpty()) {
@@ -50,6 +50,6 @@ public class TopicFilterValidator {
         }
     }
 
-    private TopicFilterValidator() {
+    private TopicValidator() {
     }
 }
