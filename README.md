@@ -82,7 +82,8 @@ classDiagram
         +authenticate(username, password)
     }
     
-    AuthorizationService --> AuthorizationStrategy
+    
+    AuthorizationService o--> AuthorizationStrategy
     FileBasedAuthorizationStrategy ..|> AuthorizationStrategy
     PermissiveAuthorizationStrategy ..|> AuthorizationStrategy
 ```
@@ -91,7 +92,7 @@ classDiagram
 **Location**:
 -   **Subject**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
 -   **Observer Interface**: `src/main/java/com/mqtt/broker/event/EventListener.java`
--   **Concrete Observers**: `ConnectionEventListener`, `DeliveryEventListener`, etc.
+-   **Concrete Observers**: `ConnectionEventListener`, `DeliveryEventListener`, `SubscriptionEventListener`
 
 **Justification**:
 The broker needs to perform auxiliary tasks (logging, updating stats, cleaning up resources) when state changes occur, without polluting the core packet processing logic.
@@ -115,10 +116,14 @@ classDiagram
     class DeliveryEventListener {
         +onEvent(BrokerEvent)
     }
+    class SubscriptionEventListener {
+        +onEvent(BrokerEvent)
+    }
     
     BrokerEventPublisher o-- EventListener
     ConnectionEventListener ..|> EventListener
     DeliveryEventListener ..|> EventListener
+    SubscriptionEventListener ..|> EventListener
 ```
 
 ### C. Command Pattern (Dispatcher)
@@ -146,17 +151,64 @@ classDiagram
     class ConnectPacketHandler {
         +handle(channel, packet)
     }
+    class DisconnectPacketHandler {
+        +handle(channel, packet)
+    }
+ 
     class PublishPacketHandler {
         +handle(channel, packet)
     }
     class SubscribePacketHandler {
         +handle(channel, packet)
     }
+    class UnsubscribePacketHandler {
+        +handle(channel, packet)
+    }
     
     MqttPacketHandler --> PacketHandler
     ConnectPacketHandler ..|> PacketHandler
+    DisconnectPacketHandler ..|> PacketHandler
     PublishPacketHandler ..|> PacketHandler
     SubscribePacketHandler ..|> PacketHandler
+    UnsubscribePacketHandler ..|> PacketHandler
+```
+
+**Diagram c.d.**:
+
+```mermaid
+classDiagram
+    class MqttPacketHandler {
+        -Map~MqttPacketType, PacketHandler~ handlers
+        +handle(channel, packet)
+    }
+    class PacketHandler {
+        <<interface>>
+        +handle(channel, packet)
+    }
+    class PingReqPacketHandler {
+        +handle(channel, packet)
+    }
+    class PubAckPacketHandler {
+        +handle(channel, packet)
+    }
+    class PubCompPacketHandler {
+        +handle(channel, packet)
+    }
+    class PubRecPacketHandler {
+        +handle(channel, packet)
+    }
+    class PubRelPacketHandler {
+        +handle(channel, packet)
+    }
+    
+    MqttPacketHandler --> PacketHandler
+
+    PingReqPacketHandler ..|> PacketHandler
+    PubAckPacketHandler ..|> PacketHandler
+    PubCompPacketHandler ..|> PacketHandler
+    PubRecPacketHandler ..|> PacketHandler
+    PubRelPacketHandler ..|> PacketHandler
+
 ```
 
 ## 4. Visual Diagrams (UML)
