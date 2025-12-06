@@ -5,43 +5,49 @@ import com.mqtt.broker.packet.PublishPacket;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
+@Getter
 public class Session {
 
     private static final int MAX_PENDING_MESSAGES = 1000;
 
-    @Getter
     final String clientId;
     private final Map<String, MqttQoS> subscriptions;
-    @Getter
     private final boolean isCleanSession;
     private volatile int keepAliveSeconds;
     private final AtomicLong lastActivityTimestamp;
     private final Queue<PublishPacket> pendingMessages;
     private final Map<Integer, PublishPacket> incomingMessages;
     private final AtomicInteger packetIdGenerator;
-
-    @Setter @Getter
+    @Setter
     private WillMessage willMessage;
 
-    public record WillMessage(String topic, String message, boolean retain, int qos) {}
+    public record WillMessage(String topic, String message, boolean retain, int qos) {
+    }
 
     public Session(String clientId, boolean isCleanSession, int keepAliveSeconds) {
+        this(clientId, isCleanSession, keepAliveSeconds, emptyMap(), emptyList());
+    }
+
+    public Session(String clientId, boolean isCleanSession, int keepAliveSeconds,
+                   Map<String, MqttQoS> subscriptions, List<PublishPacket> pendingMessages) {
         this.clientId = clientId;
-        this.subscriptions = new ConcurrentHashMap<>();
+        this.subscriptions = new ConcurrentHashMap<>(subscriptions);
         this.isCleanSession = isCleanSession;
         this.keepAliveSeconds = keepAliveSeconds;
         this.lastActivityTimestamp = new AtomicLong(currentTimeMillis());
-        this.pendingMessages = new ConcurrentLinkedQueue<>();
+        this.pendingMessages = new ConcurrentLinkedQueue<>(pendingMessages);
         this.incomingMessages = new ConcurrentHashMap<>();
         this.packetIdGenerator = new AtomicInteger(1);
     }
@@ -85,10 +91,6 @@ public class Session {
             pendingMessages.poll(); // Drop the oldest message
         }
         pendingMessages.add(publishPacket);
-    }
-
-    public Stream<PublishPacket> getPendingMessagesStream() {
-        return pendingMessages.stream();
     }
 
     public void clearPendingMessages() {

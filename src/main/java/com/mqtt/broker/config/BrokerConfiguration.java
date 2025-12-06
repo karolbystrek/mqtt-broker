@@ -12,6 +12,7 @@ public class BrokerConfiguration {
     public static class ServerProperties {
         private String host = "localhost";
         private int port = 1883;
+        private boolean cleanSession = true;
     }
 
     @Data

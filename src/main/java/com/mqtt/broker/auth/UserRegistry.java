@@ -11,14 +11,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class UserRegistry {
 
+    private static final String USERS_FILE = "passwd";
+
     private final Map<String, String> users = new ConcurrentHashMap<>();
 
-    public UserRegistry(String usersFilePath) {
-        loadUsers(usersFilePath);
+    public UserRegistry() {
+        loadUsers();
     }
 
-    private void loadUsers(String filePath) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+    private void loadUsers() {
+        try (BufferedReader reader = new BufferedReader(new FileReader(USERS_FILE))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -34,7 +36,7 @@ public class UserRegistry {
             }
             log.info("Registered {} users", users.size());
         } catch (IOException e) {
-            log.warn("Could not load users from {}: {}", filePath, e.getMessage());
+            log.warn("Could not load users from {}: {}", USERS_FILE, e.getMessage());
         }
     }
 

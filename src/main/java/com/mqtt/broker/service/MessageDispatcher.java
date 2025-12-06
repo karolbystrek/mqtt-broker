@@ -23,21 +23,20 @@ public class MessageDispatcher {
             context.getTopicTree().retainMessage(
                     packet.getVariableHeader().topicName(),
                     packet.getPayload(),
-                    packet.getQosLevel()
-            );
+                    packet.getQosLevel());
         }
-        
+
         PublishPacket livePacket = packet;
         if (packet.isRetain()) {
-             byte flags = packet.getFixedHeader().flags();
-             flags &= 0b1111_1110;
-             
-             var newFixedHeader = new MqttFixedHeader(
-                     packet.getFixedHeader().packetType(),
-                     flags,
-                     packet.getFixedHeader().remainingLength()
-             );
-             livePacket = new PublishPacket(newFixedHeader, packet.getVariableHeader(), packet.getPayload());
+            byte flags = packet.getFixedHeader().flags();
+            flags &= (byte) 0b1111_1110;
+
+            var newFixedHeader = new MqttFixedHeader(
+                    packet.getFixedHeader().packetType(),
+                    flags,
+                    packet.getFixedHeader().remainingLength());
+            livePacket = new PublishPacket(newFixedHeader, packet.getVariableHeader(),
+                    packet.getPayload());
         }
 
         forwardToSubscribers(livePacket);
@@ -51,9 +50,7 @@ public class MessageDispatcher {
             return;
         }
 
-        subscribedClientIds.forEach(clientId ->
-                routeMessageToClient(clientId, packet)
-        );
+        subscribedClientIds.forEach(clientId -> routeMessageToClient(clientId, packet));
     }
 
     private void routeMessageToClient(String clientId, PublishPacket packet) {

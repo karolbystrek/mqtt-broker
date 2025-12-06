@@ -2,8 +2,6 @@
 
 MQTT broker created for Design Patterns university class
 
-## Development plan can be found in [PLAN.md](PLAN.md)
-
 ## Prerequisites
 
 - Java 21 or higher
@@ -42,11 +40,11 @@ You can test the broker using a tool like MQTTX, which is a cross-platform MQTT 
 2. **Open MQTTX**.
 3. Click on **"New Connection"**.
 4. Configure the connection with the following details:
-    - **Name**: `Local Broker` (or any name you prefer)
-    - **Host**: `localhost`
-    - **Port**: `1883`
-    - **MQTT Version**: Select `3.1.1` from the dropdown.
-    - All other settings can be left as default.
+   - **Name**: `Local Broker` (or any name you prefer)
+   - **Host**: `localhost`
+   - **Port**: `1883`
+   - **MQTT Version**: Select `3.1.1` from the dropdown.
+   - All other settings can be left as default.
 5. Click **"Connect"**.
 
 If the connection is successful, you will see a "Connected" status in MQTTX. The broker terminal will also print a

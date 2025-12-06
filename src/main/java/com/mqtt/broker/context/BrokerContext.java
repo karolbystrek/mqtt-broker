@@ -3,6 +3,8 @@ package com.mqtt.broker.context;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.encoder.MqttPacketEncoder;
+import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.service.MessageDispatcher;
 import com.mqtt.broker.service.MqttPacketSender;
 import com.mqtt.broker.service.PendingMessageDeliveryService;
@@ -17,29 +19,31 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BrokerContext {
 
     private final BrokerConfiguration config;
+    private final UserRegistry userRegistry;
     private final TopicTree topicTree;
     private final MqttPacketSender packetSender;
-    private final PendingMessageDeliveryService pendingMessageService;
-    private final Map<SocketChannel, Session> activeSessions;
-    private final Map<String, SocketChannel> clientIdToChannel;
-    private final Map<String, Session> persistentSessions;
-    private final UserRegistry userRegistry;
     private final MessageDispatcher messageDispatcher;
+    private final PendingMessageDeliveryService pendingMessageService;
+    private final Map<String, SocketChannel> clientIdToChannel;
+    private final Map<SocketChannel, Session> activeSessions;
+    private final Map<String, Session> persistentSessions;
+    private final SessionPersistenceService sessionPersistenceService;
 
-    public BrokerContext(BrokerConfiguration config, 
-                         TopicTree topicTree, 
-                         UserRegistry userRegistry,
-                         MqttPacketSender packetSender,
-                         PendingMessageDeliveryService pendingMessageService) {
+    public BrokerContext(BrokerConfiguration config) {
         this.config = config;
-        this.topicTree = topicTree;
-        this.userRegistry = userRegistry;
-        this.packetSender = packetSender;
-        this.pendingMessageService = pendingMessageService;
+        this.userRegistry = new UserRegistry();
+        this.topicTree = new TopicTree();
+        this.packetSender = new MqttPacketSender(new MqttPacketEncoder());
         this.messageDispatcher = new MessageDispatcher(this, packetSender);
-        this.activeSessions = new ConcurrentHashMap<>();
+        this.pendingMessageService = new PendingMessageDeliveryService(packetSender);
         this.clientIdToChannel = new ConcurrentHashMap<>();
-        this.persistentSessions = new ConcurrentHashMap<>();
+        this.sessionPersistenceService = new SessionPersistenceService();
+        this.activeSessions = new ConcurrentHashMap<>();
+        if (config.getServer().isCleanSession()) {
+            this.persistentSessions = new ConcurrentHashMap<>();
+        } else {
+            this.persistentSessions = new ConcurrentHashMap<>(sessionPersistenceService.load());
+        }
     }
 
     public Session getSession(SocketChannel channel) {
@@ -65,7 +69,7 @@ public class BrokerContext {
     public Session getPersistentSession(String clientId) {
         return persistentSessions.get(clientId);
     }
-    
+
     public Session removePersistentSession(String clientId) {
         return persistentSessions.remove(clientId);
     }
@@ -75,6 +79,16 @@ public class BrokerContext {
             topicTree.removeAllSubscriptionsFor(session.getClientId());
         } else {
             persistentSessions.put(session.getClientId(), session);
+        }
+    }
+
+    public void persistSessions() {
+        if (!config.getServer().isCleanSession()) {
+            activeSessions.values().stream()
+                    .filter(s -> !s.isCleanSession())
+                    .forEach(s -> persistentSessions.put(s.getClientId(), s));
+
+            sessionPersistenceService.save(persistentSessions.values());
         }
     }
 }

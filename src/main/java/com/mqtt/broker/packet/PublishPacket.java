@@ -1,5 +1,7 @@
 package com.mqtt.broker.packet;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.ToString;
 
@@ -61,5 +63,12 @@ public final class PublishPacket extends MqttPacket {
             String topicName,
             int packetIdentifier // Optional, only present for QoS levels 1 and 2
     ) {
+    }
+
+    @JsonCreator
+    public static PublishPacket fromJson(@JsonProperty("fixedHeader") MqttFixedHeader fixedHeader,
+                                         @JsonProperty("variableHeader") PublishVariableHeader variableHeader,
+                                         @JsonProperty("payload") byte[] payload) {
+        return new PublishPacket(fixedHeader, variableHeader, payload);
     }
 }

@@ -34,6 +34,9 @@ public class BrokerEventListener implements EventListener {
     private void handleClientConnected(SocketChannel channel, Session session) {
         log.info("Handling ClientConnectedEvent for client: {}", session.getClientId());
         context.getPendingMessageService().deliverPendingMessages(channel, session);
+        session.getSubscriptions().forEach((topic, qos) ->
+                context.getTopicTree().subscribeTo(topic, session.getClientId())
+        );
     }
 
     private void handleCloseConnection(SocketChannel channel) {

@@ -3,6 +3,8 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.event.ClientConnectedEvent;
+import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
@@ -12,19 +14,18 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Optional;
-import com.mqtt.broker.event.ClientConnectedEvent;
-import com.mqtt.broker.event.CloseConnectionEvent;
 
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.handler.HandlerResult.withEvent;
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_ACCEPTED;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION;
+import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -53,7 +54,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         String clientId = connectPacket.getPayload().clientId();
         var variableHeader = connectPacket.getVariableHeader();
-        
+
         // Handle existing connection with same Client ID
         SocketChannel existingClientChannel = context.getClientChannel(clientId);
         if (existingClientChannel != null && existingClientChannel != clientChannel) {
@@ -63,7 +64,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
 
         Session session = resolveSession(clientId, variableHeader.cleanSession(), variableHeader.keepAlive());
         byte sessionPresentFlag;
-        
+
         // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new one.
         if (variableHeader.cleanSession()) {
             sessionPresentFlag = 0;
@@ -75,7 +76,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
                 sessionPresentFlag = 0;
             }
         }
-        
+
         if (variableHeader.willFlag()) {
             session.setWillMessage(new WillMessage(
                     connectPacket.getPayload().willTopic(),
@@ -89,7 +90,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         context.registerSession(clientChannel, session);
 
         var connAckPacket = createConnAckPacket(sessionPresentFlag, CONNECTION_ACCEPTED);
-        
+
         return withResponseAndEvent(connAckPacket, new ClientConnectedEvent(clientChannel, session));
     }
 
@@ -105,8 +106,8 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         }
 
         if (!areConnectFlagsValid(variableHeader)) {
-             log.warn("Connection refused for {}: Invalid connect flags", clientChannel.getRemoteAddress());
-             return Optional.of(withEvent(new CloseConnectionEvent(clientChannel)));
+            log.warn("Connection refused for {}: Invalid connect flags", clientChannel.getRemoteAddress());
+            return Optional.of(withEvent(new CloseConnectionEvent(clientChannel)));
         }
 
         String clientId = connectPacket.getPayload().clientId();
@@ -117,19 +118,19 @@ public class ConnectPacketHandler implements MqttPacketHandler {
                     new CloseConnectionEvent(clientChannel)
             ));
         }
-        
+
         if (variableHeader.hasUsername()) {
-             String username = connectPacket.getPayload().username();
-             String password = connectPacket.getPayload().password();
-             if (!context.getUserRegistry().validate(username, password)) {
-                 log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
-                 return Optional.of(withResponseAndEvent(
-                         createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
-                         new CloseConnectionEvent(clientChannel)
-                 ));
-             }
+            String username = connectPacket.getPayload().username();
+            String password = connectPacket.getPayload().password();
+            if (!context.getUserRegistry().validate(username, password)) {
+                log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
+                return Optional.of(withResponseAndEvent(
+                        createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
+                        new CloseConnectionEvent(clientChannel)
+                ));
+            }
         }
-        
+
         return Optional.empty();
     }
 
@@ -161,7 +162,7 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         boolean willFlagValid = variableHeader.willFlag() || (variableHeader.willQos() == 0 && !variableHeader.willRetain());
         boolean willQosValid = variableHeader.willQos() >= 0 && variableHeader.willQos() <= 2;
         boolean usernameFlagValid = !variableHeader.hasPassword() || variableHeader.hasUsername();
-        
+
         return willFlagValid && willQosValid && usernameFlagValid;
     }
 
@@ -173,4 +174,5 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         var connAckHeader = new ConnAckVariableHeader((byte) sessionPresent, returnCode.getCode());
         return new ConnAckPacket(new MqttFixedHeader(CONNACK, (byte) 0, 2), connAckHeader);
     }
+
 }

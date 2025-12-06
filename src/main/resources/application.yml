@@ -1,6 +1,7 @@
 server:
   host: localhost
   port: 1883
+  cleanSession: false
 mqtt:
   keepAliveCheckIntervalMs: 1000
 logging:
