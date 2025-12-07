@@ -34,29 +34,46 @@ public class PublishPacketHandler implements MqttPacketHandler {
         log.info("Handling PUBLISH packet: {}", publishPacket);
 
         var session = context.getSession(clientChannel);
+        var topic = publishPacket.getVariableHeader().topicName();
 
-        if (!context.getUserRegistry().canPublish(session.getUsername(), publishPacket.getVariableHeader().topicName())) {
-            log.warn("Client '{}' is not authorized to publish to topic '{}'.",
-                    session.getClientId(), publishPacket.getVariableHeader().topicName());
-            return empty();
+        if (isAuthorized(session.getUsername(), topic)) {
+            return handleAuthorized(clientChannel, publishPacket);
         }
 
-        return switch (publishPacket.getQosLevel()) {
-            case AT_LEAST_ONCE -> publishPacket.getPacketIdentifier()
+        return handleUnAuthorized(publishPacket, session.getUsername());
+    }
+
+    private HandlerResult handleAuthorized(SocketChannel clientChannel, PublishPacket packet) {
+        var event = new PublishEvent(clientChannel, packet);
+
+        return switch (packet.getQosLevel()) {
+            case AT_MOST_ONCE -> withEvent(event);
+
+            case AT_LEAST_ONCE -> packet.getPacketIdentifier()
+                    .map(packetId -> withResponseAndEvent(createPubAck(packetId), event))
+                    .orElse(empty()); // error, qos 1 must have a packet id
+
+            case EXACTLY_ONCE -> packet.getPacketIdentifier()
                     .map(packetId -> {
-                        var pubAck = createPubAck(packetId);
-                        var event = new PublishEvent(clientChannel, publishPacket);
-                        return withResponseAndEvent(pubAck, event);
-                    })
-                    .orElse(empty());
-            case EXACTLY_ONCE -> publishPacket.getPacketIdentifier()
-                    .map(packetId -> {
-                        session.storeIncomingMessage(publishPacket);
+                        context.getSession(clientChannel).storeIncomingMessage(packet);
                         return withResponse(createPubRec(packetId));
                     })
-                    .orElse(empty());
-            case AT_MOST_ONCE -> withEvent(new PublishEvent(clientChannel, publishPacket));
+                    .orElse(empty()); // error, qos 2 must have a packet id
         };
+    }
+
+    private HandlerResult handleUnAuthorized(PublishPacket packet, String username) {
+        log.warn("Unauthorized PUBLISH attempt by user '{}' on topic '{}'", username, packet.getVariableHeader().topicName());
+        return packet.getPacketIdentifier()
+                .map(packetId -> switch (packet.getQosLevel()) {
+                    case AT_LEAST_ONCE -> withResponse(createPubAck(packetId));
+                    case EXACTLY_ONCE -> withResponse(createPubRec(packetId));
+                    case AT_MOST_ONCE -> empty();
+                }).orElse(empty());
+    }
+
+    private boolean isAuthorized(String username, String topic) {
+        return context.getUserRegistry().canPublish(username, topic);
     }
 
     private PubAckPacket createPubAck(int packetId) {

@@ -12,9 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 
@@ -22,11 +24,15 @@ import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 @Slf4j
 public class SubscribePacketHandler implements MqttPacketHandler {
 
+    private static final int FAILURE_CODE = 0x80;
+
     private final BrokerContext context;
 
     @Override
     public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        var subscribePacket = (SubscribePacket) packet;
+        if (!(packet instanceof SubscribePacket subscribePacket)) {
+            return empty();
+        }
 
         log.info("Received SUBSCRIBE packet: {}", subscribePacket);
 
@@ -36,29 +42,41 @@ public class SubscribePacketHandler implements MqttPacketHandler {
             return empty();
         }
 
-        String username = session.getUsername();
-        List<Integer> grantedQosLevels = subscribePacket.getSubscriptions().stream()
-                .map(subscription -> {
-                    if (!context.getUserRegistry().canSubscribe(username, subscription.topic())) {
-                        log.warn("Client '{}' is not authorized to subscribe to topic '{}'.",
-                                session.getClientId(), subscription.topic());
-                        return -1;
-                    }
-                    session.addSubscription(subscription.topic(), subscription.qos());
-                    context.getTopicTree().subscribeTo(subscription.topic(), session.getClientId());
+        var grantedQosLevels = new ArrayList<Integer>();
+        var grantedTopics = new ArrayList<String>();
+        var username = session.getUsername();
 
-                    return subscription.qos().getValue();
-                })
-                .toList();
+        subscribePacket.getSubscriptions().forEach(subscription -> {
+            var topic = subscription.topic();
+            if (isAuthorized(username, topic)) {
+                session.addSubscription(topic, subscription.qos());
+                context.getTopicTree().subscribeTo(topic, session.getClientId());
 
-        var fixedHeader = new MqttFixedHeader(SUBACK, (byte) 0, 2 + grantedQosLevels.size());
-        var subAckPacket = new SubAckPacket(fixedHeader, subscribePacket.getPacketIdentifier(), grantedQosLevels);
+                grantedQosLevels.add(subscription.qos().getValue());
+                grantedTopics.add(topic);
+                log.info("Client '{}' subscribed to topic '{}' with QoS {}.",
+                        session.getClientId(), topic, subscription.qos().getValue());
+            } else {
+                log.warn("Client '{}' is not authorized to subscribe to topic '{}'.",
+                        session.getClientId(), topic);
+                grantedQosLevels.add(FAILURE_CODE);
+            }
+        });
 
-        List<String> topicFilters = subscribePacket.getSubscriptions().stream()
-                .map(SubscribePacket.Subscription::topic)
-                .toList();
-
-        var event = new ClientSubscribedEvent(clientChannel, topicFilters);
+        var subAckPacket = createSubAck(subscribePacket.getPacketIdentifier(), grantedQosLevels);
+        if (grantedTopics.isEmpty()) {
+            return withResponse(subAckPacket);
+        }
+        var event = new ClientSubscribedEvent(clientChannel, grantedTopics);
         return withResponseAndEvent(subAckPacket, event);
+    }
+
+    private boolean isAuthorized(String username, String topic) {
+        return context.getUserRegistry().canSubscribe(username, topic);
+    }
+
+    private SubAckPacket createSubAck(int packetId, List<Integer> grantedQosLevels) {
+        var fixedHeader = new MqttFixedHeader(SUBACK, (byte) 0, 2 + grantedQosLevels.size());
+        return new SubAckPacket(fixedHeader, packetId, grantedQosLevels);
     }
 }
