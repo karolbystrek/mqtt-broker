@@ -4,10 +4,10 @@ import com.mqtt.broker.Session;
 import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
-import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.service.MessageDispatcher;
 import com.mqtt.broker.service.MqttPacketSender;
 import com.mqtt.broker.service.PendingMessageDeliveryService;
+import com.mqtt.broker.service.SessionPersistenceService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.Getter;
 

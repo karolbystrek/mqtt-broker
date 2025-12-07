@@ -1,10 +1,9 @@
-package com.mqtt.broker.persistence;
+package com.mqtt.broker.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.persistence.dto.SessionDTO;
-import com.mqtt.broker.persistence.mapper.SessionMapper;
+import com.mqtt.broker.persistence.json.MqttPersistenceModule;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -27,16 +26,15 @@ public class SessionPersistenceService {
     private final File file;
 
     public SessionPersistenceService() {
-        this.objectMapper = new ObjectMapper().enable(INDENT_OUTPUT);
         this.file = new File(STORAGE_FILE);
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.enable(INDENT_OUTPUT);
+        this.objectMapper.registerModule(new MqttPersistenceModule());
     }
 
     public void save(Collection<Session> sessions) {
-        var sessionDTOs = sessions.stream()
-                .map(SessionMapper::toDto)
-                .toList();
         try {
-            objectMapper.writeValue(file, sessionDTOs);
+            objectMapper.writeValue(file, sessions);
             log.info("Persisted {} sessions to {}", sessions.size(), STORAGE_FILE);
         } catch (IOException e) {
             log.error("Failed to persist sessions", e);
@@ -49,13 +47,11 @@ public class SessionPersistenceService {
             return emptyMap();
         }
         try {
-            List<SessionDTO> sessionDTOs = objectMapper.readValue(file, new TypeReference<>() {
+            List<Session> sessions = objectMapper.readValue(file, new TypeReference<>() {
             });
-            var sessions = sessionDTOs.stream()
-                    .map(SessionMapper::fromDto)
-                    .collect(toMap(Session::getClientId, identity()));
             log.info("Loaded {} sessions from {}", sessions.size(), STORAGE_FILE);
-            return sessions;
+            return sessions.stream()
+                    .collect(toMap(Session::getClientId, identity()));
         } catch (IOException e) {
             log.error("Failed to load sessions from {}", STORAGE_FILE, e);
             return emptyMap();

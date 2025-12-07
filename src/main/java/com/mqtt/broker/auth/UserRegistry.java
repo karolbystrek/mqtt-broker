@@ -36,7 +36,9 @@ public class UserRegistry {
             List<User> users = objectMapper.readValue(USERS_FILE, new TypeReference<>() {
             });
             users.forEach(user -> {
-                user.permissions().forEach(permission -> validateTopic(permission.topic()));
+                if (user.permissions() != null) {
+                    user.permissions().forEach(permission -> validateTopic(permission.topic()));
+                }
                 this.users.put(user.username(), user);
             });
             log.info("Loaded {} users from {}", users.size(), USERS_FILE);
