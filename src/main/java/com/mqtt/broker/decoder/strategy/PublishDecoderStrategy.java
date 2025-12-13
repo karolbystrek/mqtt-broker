@@ -1,15 +1,18 @@
-package com.mqtt.broker.decoder;
+package com.mqtt.broker.decoder.strategy;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
 
 import java.nio.ByteBuffer;
 
+import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeString;
+import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 
-public interface PublishPacketDecoder extends MqttPacketDecoderInterface {
+public class PublishDecoderStrategy implements DecoderStrategy<PublishPacket> {
 
-    default PublishPacket decodePublish(MqttFixedHeader fixedHeader, ByteBuffer body) {
+    @Override
+    public PublishPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {
         String topicName = decodeString(body);
         int packetIdentifier = 0;
 

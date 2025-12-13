@@ -96,11 +96,11 @@ public class Broker implements AutoCloseable {
         buffer.flip(); // flip the buffer for reading
         while (buffer.hasRemaining()) {
             var optionalPacket = decoder.decode(buffer);
-            if (optionalPacket.isEmpty()) {
+            if (optionalPacket == null) {
                 buffer.reset(); // incomplete packet, wait for more data
                 break;
             }
-            processPacket(clientChannel, optionalPacket.get());
+            processPacket(clientChannel, optionalPacket);
         }
         buffer.compact(); // compact the buffer to preserve incomplete data
     }

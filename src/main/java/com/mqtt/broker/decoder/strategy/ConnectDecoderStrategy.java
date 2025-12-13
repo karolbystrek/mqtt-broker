@@ -1,17 +1,19 @@
-package com.mqtt.broker.decoder;
+package com.mqtt.broker.decoder.strategy;
 
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.MqttFixedHeader;
 
 import java.nio.ByteBuffer;
 
+import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeString;
+import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectPayload;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 
+public class ConnectDecoderStrategy implements DecoderStrategy<ConnectPacket> {
 
-public interface ConnectPacketDecoder extends MqttPacketDecoderInterface {
-
-    default ConnectPacket decodeConnect(MqttFixedHeader fixedHeader, ByteBuffer body) {
+    @Override
+    public ConnectPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {
         String protocolName = decodeString(body);
         int protocolVersion = body.get() & 0xFF;
 
