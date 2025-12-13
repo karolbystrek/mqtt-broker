@@ -2,8 +2,9 @@
   "clientId" : "klientid",
   "username" : "user",
   "subscriptions" : {
-    "readwrite/1" : "EXACTLY_ONCE"
+    "readonly/#" : "EXACTLY_ONCE",
+    "readwrite/#" : "EXACTLY_ONCE"
   },
   "pendingMessages" : [ ],
-  "nextPacketId" : 1
+  "nextPacketId" : 2
 } ]

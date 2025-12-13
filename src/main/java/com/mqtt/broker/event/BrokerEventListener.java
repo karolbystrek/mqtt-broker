@@ -26,14 +26,14 @@ public class BrokerEventListener implements EventListener {
             case ClientConnectedEvent(var channel, var session) -> handleClientConnected(channel, session);
             case ClientSubscribedEvent(var channel, var topicFilters) -> handleClientSubscribed(channel, topicFilters);
             case CloseConnectionEvent(var channel) -> handleCloseConnection(channel);
-            case PublishEvent(var ignored, var packet) -> handlePublishEvent(packet);
-            case ConnectionLostEvent(var ignored, var session) -> handleConnectionLost(session);
+            case PublishEvent(var packet) -> handlePublishEvent(packet);
+            case ConnectionLostEvent(var channel) -> handleConnectionLost(channel);
         }
     }
 
     private void handleClientConnected(SocketChannel channel, Session session) {
         log.info("Handling ClientConnectedEvent for client: {}", session.getClientId());
-        context.getPendingMessageService().deliverPendingMessages(channel, session);
+        context.getMessageDeliveryService().dispatchPendingMessages(channel, session);
         session.getSubscriptions().forEach((topic, qos) ->
                 context.getTopicTree().subscribeTo(topic, session.getClientId())
         );
@@ -45,7 +45,7 @@ public class BrokerEventListener implements EventListener {
 
     private void handlePublishEvent(PublishPacket packet) {
         log.info("Handling PublishEvent for packet: {}", packet);
-        context.getMessageDispatcher().dispatch(packet);
+        context.getMessageDeliveryService().dispatch(packet);
     }
 
     private void handleClientSubscribed(SocketChannel channel, List<String> topicFilters) {
@@ -77,12 +77,13 @@ public class BrokerEventListener implements EventListener {
                 var variableHeader = new PublishVariableHeader(topic, packetId);
                 var packet = new PublishPacket(fixedHeader, variableHeader, retainedMsg.payload());
 
-                context.getPacketSender().send(channel, packet);
+                context.getMessageDeliveryService().send(channel, packet);
             }
         }
     }
 
-    private void handleConnectionLost(Session session) {
+    private void handleConnectionLost(SocketChannel channel) {
+        Session session = context.getSession(channel);
         if (session == null) {
             return;
         }
@@ -114,8 +115,8 @@ public class BrokerEventListener implements EventListener {
 
             var publishPacket = new PublishPacket(fixedHeader, variableHeader, payload);
 
-            context.getMessageDispatcher().dispatch(publishPacket);
+            context.getMessageDeliveryService().dispatch(publishPacket);
         }
-        context.closeSession(session);
+        context.closeSession(channel);
     }
 }

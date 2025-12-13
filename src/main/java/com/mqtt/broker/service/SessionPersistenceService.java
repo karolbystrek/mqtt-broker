@@ -3,7 +3,7 @@ package com.mqtt.broker.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.persistence.json.MqttPersistenceModule;
+import com.mqtt.broker.persistence.MqttPersistenceModule;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -20,7 +20,7 @@ import static java.util.stream.Collectors.toMap;
 @Slf4j
 public class SessionPersistenceService {
 
-    private static final String STORAGE_FILE = "mqtt-sessions.json";
+    private static final String STORAGE_FILE = "sessions.json";
 
     private final ObjectMapper objectMapper;
     private final File file;

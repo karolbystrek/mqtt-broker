@@ -1,12 +1,11 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.event.PublishEvent;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubCompPacket;
 import com.mqtt.broker.packet.PubRelPacket;
-import com.mqtt.broker.event.PublishEvent;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +35,7 @@ public class PubRelPacketHandler implements MqttPacketHandler {
         var pubComp = new PubCompPacket(fixedHeader, packetId);
 
         if (message != null) {
-            var event = new PublishEvent(clientChannel, message);
+            var event = new PublishEvent(message);
             return withResponseAndEvent(pubComp, event);
         } else {
             log.warn("Received PUBREL for unknown packet ID: {}", packetId);

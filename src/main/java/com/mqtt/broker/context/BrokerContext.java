@@ -1,12 +1,9 @@
 package com.mqtt.broker.context;
 
 import com.mqtt.broker.Session;
-import com.mqtt.broker.auth.UserRegistry;
+import com.mqtt.broker.auth.AuthorizationService;
 import com.mqtt.broker.config.BrokerConfiguration;
-import com.mqtt.broker.encoder.MqttPacketEncoder;
-import com.mqtt.broker.service.MessageDispatcher;
-import com.mqtt.broker.service.MqttPacketSender;
-import com.mqtt.broker.service.PendingMessageDeliveryService;
+import com.mqtt.broker.service.MessageDeliveryService;
 import com.mqtt.broker.service.SessionPersistenceService;
 import com.mqtt.broker.trie.TopicTree;
 import lombok.Getter;
@@ -19,11 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BrokerContext {
 
     private final BrokerConfiguration config;
-    private final UserRegistry userRegistry;
+    private final AuthorizationService authorizationService;
     private final TopicTree topicTree;
-    private final MqttPacketSender packetSender;
-    private final MessageDispatcher messageDispatcher;
-    private final PendingMessageDeliveryService pendingMessageService;
+    private final MessageDeliveryService messageDeliveryService;
     private final Map<String, SocketChannel> clientIdToChannel;
     private final Map<SocketChannel, Session> activeSessions;
     private final Map<String, Session> persistentSessions;
@@ -31,11 +26,9 @@ public class BrokerContext {
 
     public BrokerContext(BrokerConfiguration config) {
         this.config = config;
-        this.userRegistry = new UserRegistry();
+        this.authorizationService = new AuthorizationService();
         this.topicTree = new TopicTree();
-        this.packetSender = new MqttPacketSender(new MqttPacketEncoder());
-        this.messageDispatcher = new MessageDispatcher(this, packetSender);
-        this.pendingMessageService = new PendingMessageDeliveryService(packetSender);
+        this.messageDeliveryService = new MessageDeliveryService(this);
         this.clientIdToChannel = new ConcurrentHashMap<>();
         this.sessionPersistenceService = new SessionPersistenceService();
         this.activeSessions = new ConcurrentHashMap<>();
@@ -55,13 +48,6 @@ public class BrokerContext {
         clientIdToChannel.put(session.getClientId(), channel);
     }
 
-    public void removeSession(SocketChannel channel) {
-        Session session = activeSessions.remove(channel);
-        if (session != null) {
-            clientIdToChannel.remove(session.getClientId());
-        }
-    }
-
     public SocketChannel getClientChannel(String clientId) {
         return clientIdToChannel.get(clientId);
     }
@@ -74,7 +60,12 @@ public class BrokerContext {
         return persistentSessions.remove(clientId);
     }
 
-    public void closeSession(Session session) {
+    public void closeSession(SocketChannel channel) {
+        Session session = activeSessions.remove(channel);
+        if (session == null) {
+            return;
+        }
+        clientIdToChannel.remove(session.getClientId());
         if (session.isCleanSession()) {
             topicTree.removeAllSubscriptionsFor(session.getClientId());
         } else {

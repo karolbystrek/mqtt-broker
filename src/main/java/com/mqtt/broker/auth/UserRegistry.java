@@ -49,80 +49,11 @@ public class UserRegistry {
         }
     }
 
-    public boolean authenticate(String username, String password) {
-        if (users.isEmpty()) { // No users registered, allow all
-            return true;
-        }
-
-        if (username == null || password == null) {
-            return false;
-        }
-        var user = users.get(username);
-        return user != null && user.password().equals(password);
+    public User getUserBy(String username) {
+        return users.get(username);
     }
 
-    public boolean canSubscribe(String username, String topicFilter) {
-        if (users.isEmpty()) {
-            return true;
-        }
-        if (username == null) {
-            return false;
-        }
-        var user = users.get(username);
-        if (user == null) {
-            return false;
-        }
-        return user.permissions().stream()
-                .anyMatch(p -> (p.access() == User.TopicPermission.PermissionLevel.READ || p.access() == User.TopicPermission.PermissionLevel.READ_WRITE)
-                        && matches(p.topic(), topicFilter));
-    }
-
-    public boolean canPublish(String username, String topic) {
-        if (users.isEmpty()) {
-            return true;
-        }
-        if (username == null) {
-            return false;
-        }
-        var user = users.get(username);
-        if (user == null) {
-            return false;
-        }
-        return user.permissions().stream()
-                .anyMatch(p -> (p.access() == User.TopicPermission.PermissionLevel.WRITE || p.access() == User.TopicPermission.PermissionLevel.READ_WRITE)
-                        && matches(p.topic(), topic));
-    }
-
-    private boolean matches(String permissionPattern, String topic) {
-        if (permissionPattern.equals(topic)) {
-            return true;
-        }
-        if (permissionPattern.equals("#")) {
-            return true;
-        }
-        if (permissionPattern.equals("+")) {
-            return !topic.contains("/");
-        }
-
-        String[] patternLevels = permissionPattern.split("/");
-        String[] topicLevels = topic.split("/");
-
-        for (int i = 0; i < patternLevels.length; i++) {
-            String left = patternLevels[i];
-
-            if (i >= topicLevels.length) {
-                return false;
-            }
-            String right = topicLevels[i];
-
-            if (left.equals("#")) {
-                return true;
-            }
-            if (!left.equals("+") && !left.equals(right)) {
-                return false;
-            }
-        }
-
-        return patternLevels.length == topicLevels.length;
+    public boolean hasUsers() {
+        return !users.isEmpty();
     }
 }

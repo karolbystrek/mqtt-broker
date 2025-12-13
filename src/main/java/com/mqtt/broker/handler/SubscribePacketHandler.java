@@ -15,9 +15,7 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
+import static com.mqtt.broker.handler.HandlerResult.*;
 import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 
 @RequiredArgsConstructor
@@ -72,7 +70,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
     }
 
     private boolean isAuthorized(String username, String topic) {
-        return context.getUserRegistry().canSubscribe(username, topic);
+        return context.getAuthorizationService().canSubscribe(username, topic);
     }
 
     private SubAckPacket createSubAck(int packetId, List<Integer> grantedQosLevels) {

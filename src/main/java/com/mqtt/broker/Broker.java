@@ -110,7 +110,7 @@ public class Broker implements AutoCloseable {
         var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
         var handlerResult = handler.handle(clientChannel, packet);
         handlerResult.responsePacket()
-                .ifPresent(responsePacket -> context.getPacketSender().send(clientChannel, responsePacket));
+                .ifPresent(responsePacket -> context.getMessageDeliveryService().send(clientChannel, responsePacket));
         handlerResult.event().ifPresent(eventPublisher::publish);
     }
 
@@ -142,8 +142,7 @@ public class Broker implements AutoCloseable {
 
     private void cleanupClient(SelectionKey key) {
         var clientChannel = (SocketChannel) key.channel();
-        var session = context.getSession(clientChannel);
-        eventPublisher.publish(new ConnectionLostEvent(clientChannel, session));
+        eventPublisher.publish(new ConnectionLostEvent(clientChannel));
         try {
             key.cancel();
             clientChannel.close();
@@ -151,9 +150,6 @@ public class Broker implements AutoCloseable {
             log.error("Error closing client channel: {}", e.getMessage());
         } finally {
             clientBuffers.remove(clientChannel);
-            if (session == null) {
-                context.removeSession(clientChannel);
-            }
         }
     }
 

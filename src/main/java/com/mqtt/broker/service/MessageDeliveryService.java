@@ -2,21 +2,37 @@ package com.mqtt.broker.service;
 
 import com.mqtt.broker.Session;
 import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
+import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 
 @Slf4j
 @RequiredArgsConstructor
-public class MessageDispatcher {
+public class MessageDeliveryService {
 
     private final BrokerContext context;
-    private final MqttPacketSender packetSender;
+    private final MqttPacketEncoder encoder = new MqttPacketEncoder();
+
+    public void send(SocketChannel channel, MqttPacket packet) {
+        var encodedPacket = encoder.encode(packet);
+        try {
+            var bufferToSend = encodedPacket.duplicate();
+
+            while (bufferToSend.hasRemaining()) {
+                channel.write(bufferToSend);
+            }
+        } catch (IOException e) {
+            log.error("Failed to send packet to client {}: {}", channel, e.getMessage());
+        }
+    }
 
     public void dispatch(PublishPacket packet) {
         if (packet.isRetain()) {
@@ -42,6 +58,11 @@ public class MessageDispatcher {
         forwardToSubscribers(livePacket);
     }
 
+    public void dispatchPendingMessages(SocketChannel clientChannel, Session session) {
+        session.getPendingMessages().forEach(packet -> send(clientChannel, packet));
+        session.clearPendingMessages();
+    }
+
     private void forwardToSubscribers(PublishPacket packet) {
         var topic = packet.getVariableHeader().topicName();
         var subscribedClientIds = context.getTopicTree().getSubscribersFor(topic);
@@ -57,7 +78,7 @@ public class MessageDispatcher {
         SocketChannel channel = context.getClientChannel(clientId);
 
         if (channel != null) {
-            packetSender.send(channel, packet);
+            send(channel, packet);
         } else {
             queueMessageForOfflineClient(clientId, packet);
         }

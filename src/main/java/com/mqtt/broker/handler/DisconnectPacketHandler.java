@@ -2,15 +2,15 @@ package com.mqtt.broker.handler;
 
 import com.mqtt.broker.Session;
 import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
-import java.io.IOException;
-import java.nio.channels.SocketChannel;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import com.mqtt.broker.event.CloseConnectionEvent;
+import java.io.IOException;
+import java.nio.channels.SocketChannel;
+
 import static com.mqtt.broker.handler.HandlerResult.withEvent;
 
 @RequiredArgsConstructor
@@ -32,13 +32,11 @@ public final class DisconnectPacketHandler implements MqttPacketHandler {
         }
 
         String clientId = session.getClientId();
-        
-        session.setWillMessage(null); // discard will message
-        
-        context.closeSession(session);
-        log.info("Closed session for client: {}", clientId);
 
-        context.removeSession(clientChannel);
+        session.setWillMessage(null); // discard will message
+
+        context.closeSession(clientChannel);
+        log.info("Closed session for client: {}", clientId);
 
         return withEvent(new CloseConnectionEvent(clientChannel));
     }

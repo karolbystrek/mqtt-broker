@@ -2,20 +2,13 @@ package com.mqtt.broker.handler;
 
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
-import com.mqtt.broker.packet.MqttFixedHeader;
-import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.packet.PubAckPacket;
-import com.mqtt.broker.packet.PubRecPacket;
-import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.packet.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withEvent;
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
+import static com.mqtt.broker.handler.HandlerResult.*;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
 
@@ -44,7 +37,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
     }
 
     private HandlerResult handleAuthorized(SocketChannel clientChannel, PublishPacket packet) {
-        var event = new PublishEvent(clientChannel, packet);
+        var event = new PublishEvent(packet);
 
         return switch (packet.getQosLevel()) {
             case AT_MOST_ONCE -> withEvent(event);
@@ -73,7 +66,7 @@ public class PublishPacketHandler implements MqttPacketHandler {
     }
 
     private boolean isAuthorized(String username, String topic) {
-        return context.getUserRegistry().canPublish(username, topic);
+        return context.getAuthorizationService().canPublish(username, topic);
     }
 
     private PubAckPacket createPubAck(int packetId) {
