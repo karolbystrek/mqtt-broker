@@ -1,10 +1,10 @@
-package com.mqtt.broker.handler;
+package com.mqtt.broker.handler.strategy;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.event.ClientSubscribedEvent;
+import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
-import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
 import com.mqtt.broker.trie.visitor.SubscriptionAddVisitor;
@@ -21,20 +21,14 @@ import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
 
 @RequiredArgsConstructor
 @Slf4j
-public class SubscribePacketHandler implements MqttPacketHandler {
+public class SubscribePacketHandlerStrategy implements PacketHandlerStrategy<SubscribePacket> {
 
     private static final int FAILURE_CODE = 0x80;
 
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        if (!(packet instanceof SubscribePacket subscribePacket)) {
-            return empty();
-        }
-
-        log.info("Received SUBSCRIBE packet: {}", subscribePacket);
-
+    public HandlerResult handle(SocketChannel clientChannel, SubscribePacket packet) throws IOException {
         Session session = context.getSession(clientChannel);
         if (session == null) {
             log.error("No session found for channel: {}", clientChannel.getRemoteAddress());
@@ -45,7 +39,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
         var grantedTopics = new ArrayList<String>();
         var username = session.getUsername();
 
-        subscribePacket.getSubscriptions().forEach(subscription -> {
+        packet.getSubscriptions().forEach(subscription -> {
             var topic = subscription.topic();
             if (isAuthorized(username, topic)) {
                 session.addSubscription(topic, subscription.qos());
@@ -65,7 +59,7 @@ public class SubscribePacketHandler implements MqttPacketHandler {
             }
         });
 
-        var subAckPacket = createSubAck(subscribePacket.getPacketIdentifier(), grantedQosLevels);
+        var subAckPacket = createSubAck(packet.getPacketIdentifier(), grantedQosLevels);
         if (grantedTopics.isEmpty()) {
             return withResponse(subAckPacket);
         }

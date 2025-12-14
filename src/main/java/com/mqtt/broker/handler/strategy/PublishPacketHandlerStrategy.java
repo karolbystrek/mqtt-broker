@@ -1,8 +1,12 @@
-package com.mqtt.broker.handler;
+package com.mqtt.broker.handler.strategy;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
-import com.mqtt.broker.packet.*;
+import com.mqtt.broker.handler.HandlerResult;
+import com.mqtt.broker.packet.MqttFixedHeader;
+import com.mqtt.broker.packet.PubAckPacket;
+import com.mqtt.broker.packet.PubRecPacket;
+import com.mqtt.broker.packet.PublishPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,26 +18,20 @@ import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
 
 @RequiredArgsConstructor
 @Slf4j
-public class PublishPacketHandler implements MqttPacketHandler {
+public class PublishPacketHandlerStrategy implements PacketHandlerStrategy<PublishPacket> {
 
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
-        if (!(packet instanceof PublishPacket publishPacket)) {
-            return empty();
-        }
-
-        log.info("Handling PUBLISH packet: {}", publishPacket);
-
+    public HandlerResult handle(SocketChannel clientChannel, PublishPacket packet) {
         var session = context.getSession(clientChannel);
-        var topic = publishPacket.getVariableHeader().topicName();
+        var topic = packet.getVariableHeader().topicName();
 
         if (isAuthorized(session.getUsername(), topic)) {
-            return handleAuthorized(clientChannel, publishPacket);
+            return handleAuthorized(clientChannel, packet);
         }
 
-        return handleUnAuthorized(publishPacket, session.getUsername());
+        return handleUnAuthorized(packet, session.getUsername());
     }
 
     private HandlerResult handleAuthorized(SocketChannel clientChannel, PublishPacket packet) {

@@ -1,9 +1,9 @@
-package com.mqtt.broker.handler;
+package com.mqtt.broker.handler.strategy;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
+import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
-import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubCompPacket;
 import com.mqtt.broker.packet.PubRelPacket;
 import lombok.RequiredArgsConstructor;
@@ -17,18 +17,14 @@ import static com.mqtt.broker.packet.MqttControlPacketType.PUBCOMP;
 
 @Slf4j
 @RequiredArgsConstructor
-public class PubRelPacketHandler implements MqttPacketHandler {
+public class PubRelPacketHandlerStrategy implements PacketHandlerStrategy<PubRelPacket> {
 
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) {
-        var pubRelPacket = (PubRelPacket) packet;
-
-        log.info("Handling PUBREL packet: {}", pubRelPacket);
-
+    public HandlerResult handle(SocketChannel clientChannel, PubRelPacket packet) {
         var session = context.getSession(clientChannel);
-        int packetId = pubRelPacket.getPacketIdentifier();
+        int packetId = packet.getPacketIdentifier();
 
         var message = session.retrieveIncomingMessage(packetId);
         var fixedHeader = new MqttFixedHeader(PUBCOMP, (byte) 0, 2);

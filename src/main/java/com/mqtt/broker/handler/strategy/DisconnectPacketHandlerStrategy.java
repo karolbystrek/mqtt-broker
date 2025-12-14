@@ -1,10 +1,10 @@
-package com.mqtt.broker.handler;
+package com.mqtt.broker.handler.strategy;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.event.CloseConnectionEvent;
+import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.DisconnectPacket;
-import com.mqtt.broker.packet.MqttPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,16 +15,12 @@ import static com.mqtt.broker.handler.HandlerResult.withEvent;
 
 @RequiredArgsConstructor
 @Slf4j
-public final class DisconnectPacketHandler implements MqttPacketHandler {
+public final class DisconnectPacketHandlerStrategy implements PacketHandlerStrategy<DisconnectPacket> {
 
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        var disconnectPacket = (DisconnectPacket) packet;
-
-        log.info("Received DISCONNECT packet: {}", disconnectPacket);
-
+    public HandlerResult handle(SocketChannel clientChannel, DisconnectPacket packet) throws IOException {
         Session session = context.getSession(clientChannel);
         if (session == null) {
             log.warn("No active session found for disconnecting client");

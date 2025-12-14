@@ -49,7 +49,7 @@ public class BrokerEventListener implements EventListener {
     }
 
     private void handlePublishEvent(PublishPacket packet) {
-        log.info("Handling PublishEvent for packet: {}", packet);
+        log.info("Handling PublishEvent for packet: {}", packet.getPacketIdentifier());
         context.getMessageDeliveryService().dispatch(packet);
     }
 
