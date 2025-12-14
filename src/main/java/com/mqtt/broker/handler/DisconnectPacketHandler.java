@@ -1,7 +1,7 @@
 package com.mqtt.broker.handler;
 
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;

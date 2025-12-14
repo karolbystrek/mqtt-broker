@@ -1,60 +1,35 @@
 package com.mqtt.broker.auth;
 
-import com.mqtt.broker.trie.TopicMatcher;
-import lombok.RequiredArgsConstructor;
+import com.mqtt.broker.auth.strategy.AuthorizationStrategy;
+import com.mqtt.broker.auth.strategy.FileBasedAuthorizationStrategy;
+import com.mqtt.broker.auth.strategy.PermissiveAuthorizationStrategy;
+import com.mqtt.broker.config.BrokerConfiguration;
+import lombok.extern.slf4j.Slf4j;
 
-@RequiredArgsConstructor
+@Slf4j
 public class AuthorizationService {
 
-    private final UserRegistry userRegistry = new UserRegistry();
+    private final AuthorizationStrategy strategy;
+
+    public AuthorizationService(BrokerConfiguration config) {
+        if (config.getServer().isAllowAnonymous()) {
+            log.info("Anonymous access allowed.");
+            this.strategy = new PermissiveAuthorizationStrategy();
+        } else {
+            log.info("Anonymous access disabled.");
+            this.strategy = new FileBasedAuthorizationStrategy();
+        }
+    }
 
     public boolean authenticate(String username, String password) {
-        if (!userRegistry.hasUsers()) { // No users registered, allow all
-            return true;
-        }
-
-        if (username == null || password == null) {
-            return false;
-        }
-        var user = userRegistry.getUserBy(username);
-        return user != null && user.password().equals(password);
+        return strategy.authenticate(username, password);
     }
 
     public boolean canSubscribe(String username, String topicFilter) {
-        if (!userRegistry.hasUsers()) {
-            return true;
-        }
-        if (username == null) {
-            return false;
-        }
-        var user = userRegistry.getUserBy(username);
-        if (user == null) {
-            return false;
-        }
-        if (user.permissions() == null || user.permissions().isEmpty()) {
-            return true;
-        }
-
-        return user.permissions().stream()
-                .anyMatch(p -> p.access().canRead() && TopicMatcher.matches(p.topic(), topicFilter));
+        return strategy.canSubscribe(username, topicFilter);
     }
 
     public boolean canPublish(String username, String topic) {
-        if (!userRegistry.hasUsers()) {
-            return true;
-        }
-        if (username == null) {
-            return false;
-        }
-        var user = userRegistry.getUserBy(username);
-        if (user == null) {
-            return false;
-        }
-        if (user.permissions() == null || user.permissions().isEmpty()) {
-            return true;
-        }
-
-        return user.permissions().stream()
-                .anyMatch(p -> p.access().canWrite() && TopicMatcher.matches(p.topic(), topic));
+        return strategy.canPublish(username, topic);
     }
 }

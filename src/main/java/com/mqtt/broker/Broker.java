@@ -1,7 +1,6 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.config.BrokerConfiguration;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.event.BrokerEventListener;
 import com.mqtt.broker.event.BrokerEventPublisher;

@@ -1,8 +1,8 @@
 package com.mqtt.broker.handler;
 
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.Session.WillMessage;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.packet.ConnAckPacket;
@@ -12,6 +12,7 @@ import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.trie.visitor.SubscriptionCleanupVisitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -134,7 +135,8 @@ public class ConnectPacketHandler implements MqttPacketHandler {
         if (cleanSession) {
             Session oldPersistentSession = context.removePersistentSession(clientId);
             if (oldPersistentSession != null) {
-                context.getTopicTree().removeAllSubscriptionsFor(clientId);
+                var visitor = new SubscriptionCleanupVisitor(clientId);
+                context.getSubscriptionTree().accept(visitor);
                 oldPersistentSession.clearPendingMessages();
             }
             return new Session(clientId, username, true, keepAlive);

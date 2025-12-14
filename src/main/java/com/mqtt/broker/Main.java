@@ -1,7 +1,6 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.config.ConfigLoader;
-import com.mqtt.broker.context.BrokerContext;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;

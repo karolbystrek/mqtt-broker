@@ -1,12 +1,13 @@
 package com.mqtt.broker.handler;
 
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.event.ClientSubscribedEvent;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
+import com.mqtt.broker.trie.visitor.SubscriptionAddVisitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,7 +49,10 @@ public class SubscribePacketHandler implements MqttPacketHandler {
             var topic = subscription.topic();
             if (isAuthorized(username, topic)) {
                 session.addSubscription(topic, subscription.qos());
-                context.getTopicTree().subscribeTo(topic, session.getClientId());
+
+                String[] levels = topic.split("/");
+                var visitor = new SubscriptionAddVisitor(levels, session.getClientId());
+                context.getSubscriptionTree().accept(visitor);
 
                 grantedQosLevels.add(subscription.qos().getValue());
                 grantedTopics.add(topic);

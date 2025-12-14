@@ -1,16 +1,20 @@
 package com.mqtt.broker.service;
 
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.trie.RetainedMessage;
+import com.mqtt.broker.trie.visitor.RetainedMessageAddVisitor;
+import com.mqtt.broker.trie.visitor.SubscriptionFinderVisitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 
@@ -36,10 +40,18 @@ public class MessageDeliveryService {
 
     public void dispatch(PublishPacket packet) {
         if (packet.isRetain()) {
-            context.getTopicTree().retainMessage(
-                    packet.getVariableHeader().topicName(),
-                    packet.getPayload(),
-                    packet.getQosLevel());
+            var topic = packet.getVariableHeader().topicName();
+            RetainedMessage retainedMessage = null;
+            if (packet.getPayload() != null && packet.getPayload().length > 0) {
+                log.info("Retaining message for topic: {}, QoS: {}", topic, packet.getQosLevel());
+                retainedMessage = new RetainedMessage(packet.getPayload(), packet.getQosLevel());
+            } else {
+                log.info("Clearing retained message for topic: {}", topic);
+            }
+
+            String[] levels = topic.split("/");
+            var visitor = new RetainedMessageAddVisitor(levels, retainedMessage);
+            context.getRetainedMessageTree().accept(visitor);
         }
 
         PublishPacket livePacket = packet;
@@ -65,7 +77,11 @@ public class MessageDeliveryService {
 
     private void forwardToSubscribers(PublishPacket packet) {
         var topic = packet.getVariableHeader().topicName();
-        var subscribedClientIds = context.getTopicTree().getSubscribersFor(topic);
+        var subscribedClientIds = new CopyOnWriteArraySet<String>();
+
+        String[] levels = topic.split("/");
+        var visitor = new SubscriptionFinderVisitor(levels, subscribedClientIds);
+        context.getSubscriptionTree().accept(visitor);
 
         if (subscribedClientIds.isEmpty()) {
             return;

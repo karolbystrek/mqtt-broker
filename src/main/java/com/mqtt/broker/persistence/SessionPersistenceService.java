@@ -1,9 +1,8 @@
-package com.mqtt.broker.service;
+package com.mqtt.broker.persistence;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.persistence.MqttPersistenceModule;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;

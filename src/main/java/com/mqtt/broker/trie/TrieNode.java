@@ -1,28 +1,33 @@
 package com.mqtt.broker.trie;
 
-import com.mqtt.broker.trie.visitor.Element;
 import com.mqtt.broker.trie.visitor.Visitor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 @Getter
-public class TrieNode implements Element {
-    private final ConcurrentHashMap<String, TrieNode> children;
-    private final Set<String> subscribers;
-    @Setter
-    private RetainedMessage retainedMessage;
+@Setter
+public class TrieNode<T> {
+
+    private final Map<String, TrieNode<T>> children;
+    private volatile T value;
 
     public TrieNode() {
-        this.children = new ConcurrentHashMap<>();
-        this.subscribers = new CopyOnWriteArraySet<>();
+        this(new ConcurrentHashMap<>(), null);
     }
 
-    @Override
-    public void accept(Visitor visitor) {
+    public TrieNode(Map<String, TrieNode<T>> children, T value) {
+        this.children = children;
+        this.value = value;
+    }
+
+    public Map<String, TrieNode<T>> children() {
+        return children;
+    }
+
+    public void accept(Visitor<T> visitor) {
         visitor.visit(this);
     }
 }

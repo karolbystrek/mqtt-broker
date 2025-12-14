@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.Set;
 
 @RequiredArgsConstructor
-public class SubscriptionVisitor implements Visitor {
+public class SubscriptionFinderVisitor implements Visitor<Set<String>> {
 
     private final String[] levels;
     private final Set<String> matchingSubscribers;
@@ -14,16 +14,18 @@ public class SubscriptionVisitor implements Visitor {
     private int levelIndex = 0;
 
     @Override
-    public void visit(TrieNode node) {
+    public void visit(TrieNode<Set<String>> node) {
         // Check for '#' wildcard at this level
-        TrieNode multiLevelWildcardNode = node.getChildren().get(MULTI_LEVEL_WILDCARD);
-        if (multiLevelWildcardNode != null) {
-            matchingSubscribers.addAll(multiLevelWildcardNode.getSubscribers());
+        TrieNode<Set<String>> multiLevelWildcardNode = node.children().get(MULTI_LEVEL_WILDCARD);
+        if (multiLevelWildcardNode != null && multiLevelWildcardNode.getValue() != null) {
+            matchingSubscribers.addAll(multiLevelWildcardNode.getValue());
         }
 
         // Reached the end of the topic levels
         if (levelIndex == levels.length) {
-            matchingSubscribers.addAll(node.getSubscribers());
+            if (node.getValue() != null) {
+                matchingSubscribers.addAll(node.getValue());
+            }
             return;
         }
 
@@ -33,14 +35,14 @@ public class SubscriptionVisitor implements Visitor {
         int currentIndex = levelIndex;
 
         // Explore the '+' wildcard path
-        TrieNode singleLevelWildcardNode = node.getChildren().get(SINGLE_LEVEL_WILDCARD);
+        TrieNode<Set<String>> singleLevelWildcardNode = node.children().get(SINGLE_LEVEL_WILDCARD);
         if (singleLevelWildcardNode != null) {
             levelIndex = currentIndex + 1;
             singleLevelWildcardNode.accept(this);
         }
 
         // Explore the exact match path
-        TrieNode exactMatchNode = node.getChildren().get(currentLevel);
+        TrieNode<Set<String>> exactMatchNode = node.children().get(currentLevel);
         if (exactMatchNode != null) {
             levelIndex = currentIndex + 1;
             exactMatchNode.accept(this);

@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,7 +55,7 @@ public class UserRegistry {
         return users.get(username);
     }
 
-    public boolean hasUsers() {
-        return !users.isEmpty();
+    public Collection<User> getAllUsers() {
+        return Collections.unmodifiableCollection(users.values());
     }
 }

@@ -1,10 +1,13 @@
 package com.mqtt.broker.event;
 
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
-import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
+import com.mqtt.broker.trie.RetainedMessageWithTopic;
+import com.mqtt.broker.trie.visitor.RetainedMessageFinderVisitor;
+import com.mqtt.broker.trie.visitor.SubscriptionAddVisitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,9 +37,11 @@ public class BrokerEventListener implements EventListener {
     private void handleClientConnected(SocketChannel channel, Session session) {
         log.info("Handling ClientConnectedEvent for client: {}", session.getClientId());
         context.getMessageDeliveryService().dispatchPendingMessages(channel, session);
-        session.getSubscriptions().forEach((topic, qos) ->
-                context.getTopicTree().subscribeTo(topic, session.getClientId())
-        );
+        session.getSubscriptions().forEach((topic, qos) -> {
+            String[] levels = topic.split("/");
+            var visitor = new SubscriptionAddVisitor(levels, session.getClientId());
+            context.getSubscriptionTree().accept(visitor);
+        });
     }
 
     private void handleCloseConnection(SocketChannel channel) {
@@ -53,7 +58,11 @@ public class BrokerEventListener implements EventListener {
         Session session = context.getSession(channel);
 
         for (String topicFilter : topicFilters) {
-            var retainedMessages = context.getTopicTree().getRetainedMessagesMatching(topicFilter);
+            var retainedMessages = new java.util.ArrayList<RetainedMessageWithTopic>();
+            String[] levels = topicFilter.split("/");
+            var visitor = new RetainedMessageFinderVisitor(levels, retainedMessages);
+            context.getRetainedMessageTree().accept(visitor);
+
             for (var retainedMsgWithTopic : retainedMessages) {
                 var retainedMsg = retainedMsgWithTopic.message();
                 String topic = retainedMsgWithTopic.topic();

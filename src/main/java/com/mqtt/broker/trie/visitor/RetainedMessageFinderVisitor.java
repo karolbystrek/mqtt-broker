@@ -10,7 +10,7 @@ import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RetainedMessageVisitor implements Visitor {
+public class RetainedMessageFinderVisitor implements Visitor<RetainedMessage> {
 
     private final String[] levels;
     private final List<RetainedMessageWithTopic> retainedMessages;
@@ -19,7 +19,7 @@ public class RetainedMessageVisitor implements Visitor {
     private String currentPath = "";
 
     @Override
-    public void visit(TrieNode node) {
+    public void visit(TrieNode<RetainedMessage> node) {
         if (levelIndex == levels.length) {
             appendRetainedMessage(node, currentPath);
             return;
@@ -37,7 +37,7 @@ public class RetainedMessageVisitor implements Visitor {
         }
 
         if (SINGLE_LEVEL_WILDCARD.equals(level)) {
-            for (var entry : node.getChildren().entrySet()) {
+            for (var entry : node.children().entrySet()) {
                 String childName = entry.getKey();
                 if (currentIndex == 0 && childName.startsWith("$")) {
                     continue;
@@ -55,7 +55,7 @@ public class RetainedMessageVisitor implements Visitor {
             return;
         }
 
-        TrieNode childNode = node.getChildren().get(level);
+        TrieNode<RetainedMessage> childNode = node.children().get(level);
         if (childNode != null) {
             levelIndex = currentIndex + 1;
             currentPath = savedPath.isEmpty() ? level : savedPath + "/" + level;
@@ -68,17 +68,17 @@ public class RetainedMessageVisitor implements Visitor {
         }
     }
 
-    private void findAllRetainedMessages(TrieNode node, String path) {
+    private void findAllRetainedMessages(TrieNode<RetainedMessage> node, String path) {
         appendRetainedMessage(node, path);
 
-        for (var entry : node.getChildren().entrySet()) {
+        for (var entry : node.children().entrySet()) {
             String nextPath = path.isEmpty() ? entry.getKey() : path + "/" + entry.getKey();
             findAllRetainedMessages(entry.getValue(), nextPath);
         }
     }
 
-    private void appendRetainedMessage(TrieNode node, String topicName) {
-        RetainedMessage retained = node.getRetainedMessage();
+    private void appendRetainedMessage(TrieNode<RetainedMessage> node, String topicName) {
+        RetainedMessage retained = node.getValue();
         if (retained == null) {
             return;
         }

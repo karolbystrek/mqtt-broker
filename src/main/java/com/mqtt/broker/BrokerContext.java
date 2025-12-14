@@ -1,15 +1,17 @@
-package com.mqtt.broker.context;
+package com.mqtt.broker;
 
-import com.mqtt.broker.Session;
 import com.mqtt.broker.auth.AuthorizationService;
 import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.service.MessageDeliveryService;
-import com.mqtt.broker.service.SessionPersistenceService;
+import com.mqtt.broker.trie.RetainedMessage;
 import com.mqtt.broker.trie.TopicTree;
+import com.mqtt.broker.trie.visitor.SubscriptionCleanupVisitor;
 import lombok.Getter;
 
 import java.nio.channels.SocketChannel;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
@@ -17,7 +19,8 @@ public class BrokerContext {
 
     private final BrokerConfiguration config;
     private final AuthorizationService authorizationService;
-    private final TopicTree topicTree;
+    private final TopicTree<Set<String>> subscriptionTree;
+    private final TopicTree<RetainedMessage> retainedMessageTree;
     private final MessageDeliveryService messageDeliveryService;
     private final Map<String, SocketChannel> clientIdToChannel;
     private final Map<SocketChannel, Session> activeSessions;
@@ -26,8 +29,9 @@ public class BrokerContext {
 
     public BrokerContext(BrokerConfiguration config) {
         this.config = config;
-        this.authorizationService = new AuthorizationService();
-        this.topicTree = new TopicTree();
+        this.authorizationService = new AuthorizationService(config);
+        this.subscriptionTree = new TopicTree<>();
+        this.retainedMessageTree = new TopicTree<>();
         this.messageDeliveryService = new MessageDeliveryService(this);
         this.clientIdToChannel = new ConcurrentHashMap<>();
         this.sessionPersistenceService = new SessionPersistenceService();
@@ -67,7 +71,8 @@ public class BrokerContext {
         }
         clientIdToChannel.remove(session.getClientId());
         if (session.isCleanSession()) {
-            topicTree.removeAllSubscriptionsFor(session.getClientId());
+            var visitor = new SubscriptionCleanupVisitor(session.getClientId());
+            subscriptionTree.accept(visitor);
         } else {
             persistentSessions.put(session.getClientId(), session);
         }

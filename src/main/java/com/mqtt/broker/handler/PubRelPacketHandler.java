@@ -1,6 +1,6 @@
 package com.mqtt.broker.handler;
 
-import com.mqtt.broker.context.BrokerContext;
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
