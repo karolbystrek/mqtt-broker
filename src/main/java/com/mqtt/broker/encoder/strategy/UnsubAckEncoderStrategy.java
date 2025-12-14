@@ -1,24 +1,21 @@
 package com.mqtt.broker.encoder.strategy;
 
-import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.UnsubAckPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.encoder.PacketEncoderUtils.encodeFixedHeader;
+import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static java.nio.ByteBuffer.allocate;
 
-public final class UnsubAckEncoderStrategy implements PacketEncoderStrategy {
+public final class UnsubAckEncoderStrategy implements EncoderStrategy<UnsubAckPacket> {
 
     @Override
-    public ByteBuffer encode(MqttPacket packet) {
-        var unsubAckPacket = (UnsubAckPacket) packet;
-
-        var fixedHeaderBuffer = encodeFixedHeader(unsubAckPacket.getFixedHeader());
+    public ByteBuffer encode(UnsubAckPacket packet) {
+        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
 
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
         fullPacket.put(fixedHeaderBuffer);
-        fullPacket.putShort((short) unsubAckPacket.getPacketIdentifier());
+        fullPacket.putShort((short) packet.getPacketIdentifier());
         fullPacket.flip();
 
         return fullPacket;

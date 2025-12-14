@@ -9,7 +9,7 @@ public class AuthorizationService {
     private final UserRegistry userRegistry = new UserRegistry();
 
     public boolean authenticate(String username, String password) {
-        if (userRegistry.hasUsers()) { // No users registered, allow all
+        if (!userRegistry.hasUsers()) { // No users registered, allow all
             return true;
         }
 
@@ -58,4 +58,3 @@ public class AuthorizationService {
                 .anyMatch(p -> p.access().canWrite() && TopicMatcher.matches(p.topic(), topic));
     }
 }
-

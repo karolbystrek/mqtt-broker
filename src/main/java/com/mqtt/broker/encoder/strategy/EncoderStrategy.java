@@ -5,7 +5,7 @@ import com.mqtt.broker.packet.MqttPacket;
 import java.nio.ByteBuffer;
 
 @FunctionalInterface
-public interface PacketEncoderStrategy {
+public interface EncoderStrategy<T extends MqttPacket> {
 
-    ByteBuffer encode(MqttPacket packet);
+    ByteBuffer encode(T packet);
 }

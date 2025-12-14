@@ -6,8 +6,8 @@ import com.mqtt.broker.packet.UnsubscribePacket;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeString;
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 
 public class UnsubscribeDecoderStrategy implements DecoderStrategy<UnsubscribePacket> {
 

@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 
 import static java.nio.ByteBuffer.allocate;
 
-public final class PacketEncoderUtils {
+public final class EncoderUtils {
 
-    private PacketEncoderUtils() {
+    private EncoderUtils() {
         throw new UnsupportedOperationException("Utility class");
     }
 

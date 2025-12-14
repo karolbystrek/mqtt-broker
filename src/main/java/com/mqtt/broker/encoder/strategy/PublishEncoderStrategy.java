@@ -1,41 +1,38 @@
 package com.mqtt.broker.encoder.strategy;
 
-import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.encoder.PacketEncoderUtils.encodeFixedHeader;
-import static com.mqtt.broker.encoder.PacketEncoderUtils.encodeString;
+import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
+import static com.mqtt.broker.encoder.EncoderUtils.encodeString;
 import static java.nio.ByteBuffer.allocate;
 
-public final class PublishEncoderStrategy implements PacketEncoderStrategy {
+public final class PublishEncoderStrategy implements EncoderStrategy<PublishPacket> {
 
     @Override
-    public ByteBuffer encode(MqttPacket packet) {
-        var publishPacket = (PublishPacket) packet;
+    public ByteBuffer encode(PublishPacket packet) {
+        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
 
-        var fixedHeaderBuffer = encodeFixedHeader(publishPacket.getFixedHeader());
-
-        int variableHeaderLength = 2 + publishPacket.getVariableHeader().topicName().length();
-        if (publishPacket.getQosLevel().requiresPacketId()) {
+        int variableHeaderLength = 2 + packet.getVariableHeader().topicName().length();
+        if (packet.getQosLevel().requiresPacketId()) {
             variableHeaderLength += 2; // packet identifier
         }
 
-        int remainingLength = variableHeaderLength + publishPacket.getPayload().length;
+        int remainingLength = variableHeaderLength + packet.getPayload().length;
 
         var buffer = allocate(fixedHeaderBuffer.remaining() + remainingLength);
 
         buffer.put(fixedHeaderBuffer);
 
-        encodeString(buffer, publishPacket.getVariableHeader().topicName());
+        encodeString(buffer, packet.getVariableHeader().topicName());
 
         // Write packet identifier if QoS > 0
-        if (publishPacket.getQosLevel().requiresPacketId()) {
-            buffer.putShort((short) publishPacket.getVariableHeader().packetIdentifier());
+        if (packet.getQosLevel().requiresPacketId()) {
+            buffer.putShort((short) packet.getVariableHeader().packetIdentifier());
         }
 
-        buffer.put(publishPacket.getPayload());
+        buffer.put(packet.getPayload());
         buffer.flip();
 
         return buffer;

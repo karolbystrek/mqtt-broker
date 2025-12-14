@@ -1,18 +1,36 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.packet.DisconnectPacket;
+import com.mqtt.broker.decoder.strategy.*;
+import com.mqtt.broker.packet.MqttControlPacketType;
 import com.mqtt.broker.packet.MqttPacket;
-import com.mqtt.broker.packet.PingReqPacket;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
 
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeFixedHeader;
-import static com.mqtt.broker.packet.MqttControlPacketType.DISCONNECT;
-import static com.mqtt.broker.packet.MqttControlPacketType.PINGREQ;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeFixedHeader;
+import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
+import static com.mqtt.broker.packet.MqttControlPacketType.*;
+import static java.util.Map.entry;
+import static java.util.Map.ofEntries;
 
 public class MqttPacketDecoder {
 
-    private final DecoderRegistry decoderRegistry = new DecoderRegistry();
+    private final Map<MqttControlPacketType, DecoderStrategy<?>> decoders;
+
+    public MqttPacketDecoder() {
+        this.decoders = ofEntries(
+                entry(CONNECT, new ConnectDecoderStrategy()),
+                entry(DISCONNECT, new DisconnectDecoderStrategy()),
+                entry(PUBLISH, new PublishDecoderStrategy()),
+                entry(PUBACK, new PubAckDecoderStrategy()),
+                entry(PINGREQ, new PingReqDecoderStrategy()),
+                entry(PUBREC, new PubRecDecoderStrategy()),
+                entry(PUBREL, new PubRelDecoderStrategy()),
+                entry(PUBCOMP, new PubCompDecoderStrategy()),
+                entry(SUBSCRIBE, new SubscribeDecoderStrategy()),
+                entry(UNSUBSCRIBE, new UnsubscribeDecoderStrategy())
+        );
+    }
 
     public MqttPacket decode(ByteBuffer buffer) {
         if (buffer.remaining() < 2) {
@@ -32,12 +50,14 @@ public class MqttPacketDecoder {
 
         buffer.position(buffer.position() + fixedHeader.remainingLength());
 
-        if (fixedHeader.packetType() == PINGREQ) {
-            return new PingReqPacket(fixedHeader);
-        } else if (fixedHeader.packetType() == DISCONNECT) {
-            return new DisconnectPacket(fixedHeader);
-        }
+        return getDecoderFor(fixedHeader.packetType()).decode(fixedHeader, packetBody);
+    }
 
-        return decoderRegistry.getDecoderFor(fixedHeader.packetType()).decode(fixedHeader, packetBody);
+    private DecoderStrategy<?> getDecoderFor(MqttControlPacketType packetType) {
+        var decoder = decoders.get(packetType);
+        if (decoder == null) {
+            throw unsupportedPacketType(packetType);
+        }
+        return decoder;
     }
 }

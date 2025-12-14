@@ -33,7 +33,7 @@ public class Broker implements AutoCloseable {
     private final BrokerContext context;
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
-    private final MqttPacketDecoder decoder;
+    private final MqttPacketDecoder packetDecoder;
     private final PacketHandlerFactory handlerFactory;
     private final Map<SocketChannel, ByteBuffer> clientBuffers;
     private final BrokerEventPublisher eventPublisher;
@@ -43,7 +43,7 @@ public class Broker implements AutoCloseable {
         this.context = context;
         this.selector = Selector.open();
         this.serverChannel = setupServer(selector, config);
-        this.decoder = new MqttPacketDecoder();
+        this.packetDecoder = new MqttPacketDecoder();
         this.handlerFactory = new PacketHandlerFactory(context);
         this.clientBuffers = new ConcurrentHashMap<>();
         this.eventPublisher = new BrokerEventPublisher();
@@ -95,7 +95,7 @@ public class Broker implements AutoCloseable {
         }
         buffer.flip(); // flip the buffer for reading
         while (buffer.hasRemaining()) {
-            var optionalPacket = decoder.decode(buffer);
+            var optionalPacket = packetDecoder.decode(buffer);
             if (optionalPacket == null) {
                 buffer.reset(); // incomplete packet, wait for more data
                 break;

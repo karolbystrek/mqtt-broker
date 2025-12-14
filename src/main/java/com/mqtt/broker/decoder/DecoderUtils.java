@@ -1,15 +1,16 @@
 package com.mqtt.broker.decoder;
 
-import java.nio.ByteBuffer;
-
 import com.mqtt.broker.packet.MqttControlPacketType;
 import com.mqtt.broker.packet.MqttFixedHeader;
 
+import java.nio.ByteBuffer;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public final class PacketDecoderUtils {
+public final class DecoderUtils {
 
-    private PacketDecoderUtils() {}
+    private DecoderUtils() {
+    }
 
     public static MqttFixedHeader decodeFixedHeader(ByteBuffer buffer) {
         byte headerByte1 = buffer.get();

@@ -1,24 +1,21 @@
 package com.mqtt.broker.encoder.strategy;
 
 import com.mqtt.broker.packet.ConnAckPacket;
-import com.mqtt.broker.packet.MqttPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.encoder.PacketEncoderUtils.encodeFixedHeader;
+import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static java.nio.ByteBuffer.allocate;
 
-public final class ConnAckEncoderStrategy implements PacketEncoderStrategy {
+public final class ConnAckEncoderStrategy implements EncoderStrategy<ConnAckPacket> {
 
     @Override
-    public ByteBuffer encode(MqttPacket packet) {
-        var connAckPacket = (ConnAckPacket) packet;
-
+    public ByteBuffer encode(ConnAckPacket packet) {
         byte[] variableHeader = new byte[2];
-        variableHeader[0] = (byte) (connAckPacket.getVariableHeader().isSessionPresent() ? 0x01 : 0x00);
-        variableHeader[1] = (byte) connAckPacket.getVariableHeader().returnCode();
+        variableHeader[0] = (byte) (packet.getVariableHeader().isSessionPresent() ? 0x01 : 0x00);
+        variableHeader[1] = (byte) packet.getVariableHeader().returnCode();
 
-        var fixedHeaderBuffer = encodeFixedHeader(connAckPacket.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
 
         var buffer = allocate(fixedHeaderBuffer.remaining() + variableHeader.length);
         buffer.put(fixedHeaderBuffer);

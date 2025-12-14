@@ -5,7 +5,7 @@ import com.mqtt.broker.packet.PubCompPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 
 public class PubCompDecoderStrategy implements DecoderStrategy<PubCompPacket> {
 

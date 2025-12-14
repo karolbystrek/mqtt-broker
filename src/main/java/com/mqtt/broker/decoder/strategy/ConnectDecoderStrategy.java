@@ -5,8 +5,8 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeString;
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectPayload;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 

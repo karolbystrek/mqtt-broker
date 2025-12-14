@@ -7,8 +7,8 @@ import com.mqtt.broker.packet.SubscribePacket;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeString;
-import static com.mqtt.broker.decoder.PacketDecoderUtils.decodeTwoByteInt;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
+import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.SubscribePacket.Subscription;
 
 public class SubscribeDecoderStrategy implements DecoderStrategy<SubscribePacket> {

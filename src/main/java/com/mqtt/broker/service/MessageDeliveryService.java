@@ -19,12 +19,12 @@ import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 public class MessageDeliveryService {
 
     private final BrokerContext context;
-    private final MqttPacketEncoder encoder = new MqttPacketEncoder();
+    private final MqttPacketEncoder packetEncoder = new MqttPacketEncoder();
 
     public void send(SocketChannel channel, MqttPacket packet) {
-        var encodedPacket = encoder.encode(packet);
+        var encodedPacketBuffer = packetEncoder.encode(packet);
         try {
-            var bufferToSend = encodedPacket.duplicate();
+            var bufferToSend = encodedPacketBuffer.duplicate();
 
             while (bufferToSend.hasRemaining()) {
                 channel.write(bufferToSend);
