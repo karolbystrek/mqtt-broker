@@ -2,22 +2,17 @@ package com.mqtt.broker.handler;
 
 import com.mqtt.broker.context.BrokerContext;
 import com.mqtt.broker.packet.MqttControlPacketType;
+import com.mqtt.broker.packet.MqttPacket;
+
+import java.io.IOException;
+import java.nio.channels.SocketChannel;
 import java.util.EnumMap;
 import java.util.Map;
 
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNECT;
-import static com.mqtt.broker.packet.MqttControlPacketType.DISCONNECT;
-import static com.mqtt.broker.packet.MqttControlPacketType.PINGREQ;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBCOMP;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBREL;
-import static com.mqtt.broker.packet.MqttControlPacketType.SUBSCRIBE;
-import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBSCRIBE;
+import static com.mqtt.broker.packet.MqttControlPacketType.*;
 
-public class PacketHandlerFactory {
+public class PacketHandlerFactory implements MqttPacketHandler {
 
     private final Map<MqttControlPacketType, MqttPacketHandler> handlers;
 
@@ -36,7 +31,12 @@ public class PacketHandlerFactory {
         handlers.put(DISCONNECT, new DisconnectPacketHandler(context));
     }
 
-    public MqttPacketHandler getHandler(MqttControlPacketType packetType) {
+    @Override
+    public HandlerResult handle(SocketChannel clientChannel, MqttPacket packet) throws IOException {
+        return getHandler(packet.getFixedHeader().packetType()).handle(clientChannel, packet);
+    }
+
+    private MqttPacketHandler getHandler(MqttControlPacketType packetType) {
         MqttPacketHandler handler = handlers.get(packetType);
         if (handler == null) {
             throw unsupportedPacketType(packetType);

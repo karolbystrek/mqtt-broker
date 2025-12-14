@@ -107,8 +107,7 @@ public class Broker implements AutoCloseable {
 
     private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
         updateClientActivity(clientChannel);
-        var handler = handlerFactory.getHandler(packet.getFixedHeader().packetType());
-        var handlerResult = handler.handle(clientChannel, packet);
+        var handlerResult = handlerFactory.handle(clientChannel, packet);
         handlerResult.responsePacket()
                 .ifPresent(responsePacket -> context.getMessageDeliveryService().send(clientChannel, responsePacket));
         handlerResult.event().ifPresent(eventPublisher::publish);
