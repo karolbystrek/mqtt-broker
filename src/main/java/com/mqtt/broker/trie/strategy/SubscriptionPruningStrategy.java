@@ -1,4 +1,4 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.trie.TrieNode;
 import lombok.RequiredArgsConstructor;
@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.Set;
 
 @RequiredArgsConstructor
-public class SubscriptionCleanupVisitor implements Visitor<Set<String>> {
+public class SubscriptionPruningStrategy implements TrieStrategy<Set<String>> {
 
     private final String clientId;
 
@@ -15,9 +15,9 @@ public class SubscriptionCleanupVisitor implements Visitor<Set<String>> {
         if (node.getValue() != null) {
             node.getValue().remove(clientId);
         }
-        
+
         for (TrieNode<Set<String>> child : node.children().values()) {
-            child.accept(this);
+            child.perform(this);
         }
     }
 }

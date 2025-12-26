@@ -1,4 +1,4 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.trie.TrieNode;
 import lombok.RequiredArgsConstructor;
@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.Set;
 
 @RequiredArgsConstructor
-public class SubscriptionFinderVisitor implements Visitor<Set<String>> {
+public class SubscriberLookupStrategy implements TrieStrategy<Set<String>> {
 
     private final String[] levels;
     private final Set<String> matchingSubscribers;
@@ -38,14 +38,14 @@ public class SubscriptionFinderVisitor implements Visitor<Set<String>> {
         TrieNode<Set<String>> singleLevelWildcardNode = node.children().get(SINGLE_LEVEL_WILDCARD);
         if (singleLevelWildcardNode != null) {
             levelIndex = currentIndex + 1;
-            singleLevelWildcardNode.accept(this);
+            singleLevelWildcardNode.perform(this);
         }
 
         // Explore the exact match path
         TrieNode<Set<String>> exactMatchNode = node.children().get(currentLevel);
         if (exactMatchNode != null) {
             levelIndex = currentIndex + 1;
-            exactMatchNode.accept(this);
+            exactMatchNode.perform(this);
         }
 
         // Restore index

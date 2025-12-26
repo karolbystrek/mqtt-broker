@@ -1,4 +1,4 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.auth.AuthorizationEntry;
 import com.mqtt.broker.trie.TrieNode;
@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import java.util.Set;
 
 @RequiredArgsConstructor
-public class AuthorizationFinderVisitor implements Visitor<Set<AuthorizationEntry>> {
+public class AuthorizationLookupStrategy implements TrieStrategy<Set<AuthorizationEntry>> {
 
     private final String[] levels;
     private final Set<AuthorizationEntry> matchingEntries;
@@ -39,14 +39,14 @@ public class AuthorizationFinderVisitor implements Visitor<Set<AuthorizationEntr
         TrieNode<Set<AuthorizationEntry>> singleLevelWildcardNode = node.children().get(SINGLE_LEVEL_WILDCARD);
         if (singleLevelWildcardNode != null) {
             levelIndex = currentIndex + 1;
-            singleLevelWildcardNode.accept(this);
+            singleLevelWildcardNode.perform(this);
         }
 
         // Explore the exact match path
         TrieNode<Set<AuthorizationEntry>> exactMatchNode = node.children().get(currentLevel);
         if (exactMatchNode != null) {
             levelIndex = currentIndex + 1;
-            exactMatchNode.accept(this);
+            exactMatchNode.perform(this);
         }
 
         // Restore index

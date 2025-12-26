@@ -4,7 +4,7 @@ import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.UnsubAckPacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
-import com.mqtt.broker.trie.visitor.SubscriptionRemoveVisitor;
+import com.mqtt.broker.trie.strategy.SubscriptionRemovalStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +33,8 @@ class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
             clientSession.removeSubscription(topicFilter);
 
             String[] levels = topicFilter.split("/");
-            var visitor = new SubscriptionRemoveVisitor(levels, clientSession.getClientId());
-            context.getSubscriptionTree().accept(visitor);
+            var strategy = new SubscriptionRemovalStrategy(levels, clientSession.getClientId());
+            context.getSubscriptionTree().perform(strategy);
         });
 
         var unsubAckFixedHeader = new MqttFixedHeader(UNSUBACK, (byte) 0, 2);

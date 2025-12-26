@@ -1,9 +1,9 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.trie.TrieNode;
 
 @FunctionalInterface
-public interface Visitor<T> {
+public interface TrieStrategy<T> {
 
     String SINGLE_LEVEL_WILDCARD = "+";
     String MULTI_LEVEL_WILDCARD = "#";

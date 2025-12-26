@@ -1,6 +1,6 @@
 package com.mqtt.broker.trie;
 
-import com.mqtt.broker.trie.visitor.Visitor;
+import com.mqtt.broker.trie.strategy.TrieStrategy;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,7 +27,7 @@ public class TrieNode<T> {
         return children;
     }
 
-    public void accept(Visitor<T> visitor) {
-        visitor.visit(this);
+    public void perform(TrieStrategy<T> strategy) {
+        strategy.visit(this);
     }
 }

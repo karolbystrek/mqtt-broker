@@ -1,4 +1,4 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.trie.RetainedMessage;
 import com.mqtt.broker.trie.RetainedMessageWithTopic;
@@ -10,7 +10,7 @@ import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RetainedMessageFinderVisitor implements Visitor<RetainedMessage> {
+public class RetainedMessageFinderStrategy implements TrieStrategy<RetainedMessage> {
 
     private final String[] levels;
     private final List<RetainedMessageWithTopic> retainedMessages;
@@ -47,7 +47,7 @@ public class RetainedMessageFinderVisitor implements Visitor<RetainedMessage> {
                 levelIndex = currentIndex + 1;
                 currentPath = savedPath.isEmpty() ? childName : savedPath + "/" + childName;
 
-                entry.getValue().accept(this);
+                entry.getValue().perform(this);
             }
             // Restore state
             levelIndex = currentIndex;
@@ -60,7 +60,7 @@ public class RetainedMessageFinderVisitor implements Visitor<RetainedMessage> {
             levelIndex = currentIndex + 1;
             currentPath = savedPath.isEmpty() ? level : savedPath + "/" + level;
 
-            childNode.accept(this);
+            childNode.perform(this);
 
             // Restore state
             levelIndex = currentIndex;

@@ -6,8 +6,8 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 import com.mqtt.broker.trie.RetainedMessageWithTopic;
-import com.mqtt.broker.trie.visitor.RetainedMessageFinderVisitor;
-import com.mqtt.broker.trie.visitor.SubscriptionAddVisitor;
+import com.mqtt.broker.trie.strategy.RetainedMessageFinderStrategy;
+import com.mqtt.broker.trie.strategy.SubscriptionInsertionStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,8 +39,8 @@ public class BrokerEventListener implements EventListener {
         context.getMessageDeliveryService().dispatchPendingMessages(channel, session);
         session.getSubscriptions().forEach((topic, qos) -> {
             String[] levels = topic.split("/");
-            var visitor = new SubscriptionAddVisitor(levels, session.getClientId());
-            context.getSubscriptionTree().accept(visitor);
+            var strategy = new SubscriptionInsertionStrategy(levels, session.getClientId());
+            context.getSubscriptionTree().perform(strategy);
         });
     }
 
@@ -60,8 +60,8 @@ public class BrokerEventListener implements EventListener {
         for (String topicFilter : topicFilters) {
             var retainedMessages = new java.util.ArrayList<RetainedMessageWithTopic>();
             String[] levels = topicFilter.split("/");
-            var visitor = new RetainedMessageFinderVisitor(levels, retainedMessages);
-            context.getRetainedMessageTree().accept(visitor);
+            var strategy = new RetainedMessageFinderStrategy(levels, retainedMessages);
+            context.getRetainedMessageTree().perform(strategy);
 
             for (var retainedMsgWithTopic : retainedMessages) {
                 var retainedMsg = retainedMsgWithTopic.message();

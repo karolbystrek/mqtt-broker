@@ -1,6 +1,5 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
-import com.mqtt.broker.auth.AuthorizationEntry;
 import com.mqtt.broker.trie.TrieNode;
 import lombok.RequiredArgsConstructor;
 
@@ -8,26 +7,26 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 @RequiredArgsConstructor
-public class AuthorizationAddVisitor implements Visitor<Set<AuthorizationEntry>> {
+public class SubscriptionInsertionStrategy implements TrieStrategy<Set<String>> {
 
     private final String[] levels;
-    private final AuthorizationEntry entry;
+    private final String clientId;
     private int currentLevel = 0;
 
     @Override
-    public void visit(TrieNode<Set<AuthorizationEntry>> node) {
+    public void visit(TrieNode<Set<String>> node) {
         if (currentLevel == levels.length) {
             if (node.getValue() == null) {
                 node.setValue(new CopyOnWriteArraySet<>());
             }
-            node.getValue().add(entry);
+            node.getValue().add(clientId);
             return;
         }
 
         String level = levels[currentLevel];
-        TrieNode<Set<AuthorizationEntry>> child = node.children().computeIfAbsent(level, k -> new TrieNode<>());
-        
+        TrieNode<Set<String>> child = node.children().computeIfAbsent(level, k -> new TrieNode<>());
+
         currentLevel++;
-        child.accept(this);
+        child.perform(this);
     }
 }

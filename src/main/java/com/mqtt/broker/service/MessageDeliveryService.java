@@ -7,8 +7,8 @@ import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.trie.RetainedMessage;
-import com.mqtt.broker.trie.visitor.RetainedMessageAddVisitor;
-import com.mqtt.broker.trie.visitor.SubscriptionFinderVisitor;
+import com.mqtt.broker.trie.strategy.RetainedMessageLookupStrategy;
+import com.mqtt.broker.trie.strategy.SubscriberLookupStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,8 +50,8 @@ public class MessageDeliveryService {
             }
 
             String[] levels = topic.split("/");
-            var visitor = new RetainedMessageAddVisitor(levels, retainedMessage);
-            context.getRetainedMessageTree().accept(visitor);
+            var strategy = new RetainedMessageLookupStrategy(levels, retainedMessage);
+            context.getRetainedMessageTree().perform(strategy);
         }
 
         PublishPacket livePacket = packet;
@@ -80,8 +80,8 @@ public class MessageDeliveryService {
         var subscribedClientIds = new CopyOnWriteArraySet<String>();
 
         String[] levels = topic.split("/");
-        var visitor = new SubscriptionFinderVisitor(levels, subscribedClientIds);
-        context.getSubscriptionTree().accept(visitor);
+        var strategy = new SubscriberLookupStrategy(levels, subscribedClientIds);
+        context.getSubscriptionTree().perform(strategy);
 
         if (subscribedClientIds.isEmpty()) {
             return;

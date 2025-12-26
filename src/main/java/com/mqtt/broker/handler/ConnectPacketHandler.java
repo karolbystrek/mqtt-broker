@@ -11,7 +11,7 @@ import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
-import com.mqtt.broker.trie.visitor.SubscriptionCleanupVisitor;
+import com.mqtt.broker.trie.strategy.SubscriptionPruningStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -133,8 +133,8 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         if (cleanSession) {
             Session oldPersistentSession = context.removePersistentSession(clientId);
             if (oldPersistentSession != null) {
-                var visitor = new SubscriptionCleanupVisitor(clientId);
-                context.getSubscriptionTree().accept(visitor);
+                var strategy = new SubscriptionPruningStrategy(clientId);
+                context.getSubscriptionTree().perform(strategy);
                 oldPersistentSession.clearPendingMessages();
             }
             return new Session(clientId, username, true, keepAlive);

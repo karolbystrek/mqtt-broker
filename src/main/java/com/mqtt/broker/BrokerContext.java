@@ -6,7 +6,7 @@ import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.service.MessageDeliveryService;
 import com.mqtt.broker.trie.RetainedMessage;
 import com.mqtt.broker.trie.TopicTree;
-import com.mqtt.broker.trie.visitor.SubscriptionCleanupVisitor;
+import com.mqtt.broker.trie.strategy.SubscriptionPruningStrategy;
 import lombok.Getter;
 
 import java.nio.channels.SocketChannel;
@@ -71,8 +71,8 @@ public class BrokerContext {
         }
         clientIdToChannel.remove(session.getClientId());
         if (session.isCleanSession()) {
-            var visitor = new SubscriptionCleanupVisitor(session.getClientId());
-            subscriptionTree.accept(visitor);
+            var strategy = new SubscriptionPruningStrategy(session.getClientId());
+            subscriptionTree.perform(strategy);
         } else {
             persistentSessions.put(session.getClientId(), session);
         }

@@ -1,11 +1,11 @@
-package com.mqtt.broker.trie.visitor;
+package com.mqtt.broker.trie.strategy;
 
 import com.mqtt.broker.trie.RetainedMessage;
 import com.mqtt.broker.trie.TrieNode;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class RetainedMessageAddVisitor implements Visitor<RetainedMessage> {
+public class RetainedMessageLookupStrategy implements TrieStrategy<RetainedMessage> {
 
     private final String[] levels;
     private final RetainedMessage retainedMessage;
@@ -20,8 +20,8 @@ public class RetainedMessageAddVisitor implements Visitor<RetainedMessage> {
 
         String level = levels[currentLevel];
         TrieNode<RetainedMessage> child = node.children().computeIfAbsent(level, k -> new TrieNode<>());
-        
+
         currentLevel++;
-        child.accept(this);
+        child.perform(this);
     }
 }

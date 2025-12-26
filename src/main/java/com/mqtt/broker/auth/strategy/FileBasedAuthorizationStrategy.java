@@ -3,8 +3,8 @@ package com.mqtt.broker.auth.strategy;
 import com.mqtt.broker.auth.AuthorizationEntry;
 import com.mqtt.broker.auth.UserRegistry;
 import com.mqtt.broker.trie.TopicTree;
-import com.mqtt.broker.trie.visitor.AuthorizationAddVisitor;
-import com.mqtt.broker.trie.visitor.AuthorizationFinderVisitor;
+import com.mqtt.broker.trie.strategy.AuthorizationInsertionStrategy;
+import com.mqtt.broker.trie.strategy.AuthorizationLookupStrategy;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Set;
@@ -25,8 +25,8 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
             if (user.permissions() != null) {
                 for (var permission : user.permissions()) {
                     String[] levels = permission.topic().split("/");
-                    var visitor = new AuthorizationAddVisitor(levels, new AuthorizationEntry(user.username(), permission.access()));
-                    authorizationTree.accept(visitor);
+                    var strategy = new AuthorizationInsertionStrategy(levels, new AuthorizationEntry(user.username(), permission.access()));
+                    authorizationTree.perform(strategy);
                 }
             }
         }
@@ -49,8 +49,8 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
 
         var entries = new CopyOnWriteArraySet<AuthorizationEntry>();
         String[] levels = topicFilter.split("/");
-        var visitor = new AuthorizationFinderVisitor(levels, entries);
-        authorizationTree.accept(visitor);
+        var strategy = new AuthorizationLookupStrategy(levels, entries);
+        authorizationTree.perform(strategy);
 
         return entries.stream()
                 .anyMatch(e -> e.username().equals(username) && e.access().canRead());
@@ -64,8 +64,8 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
 
         var entries = new CopyOnWriteArraySet<AuthorizationEntry>();
         String[] levels = topic.split("/");
-        var visitor = new AuthorizationFinderVisitor(levels, entries);
-        authorizationTree.accept(visitor);
+        var strategy = new AuthorizationLookupStrategy(levels, entries);
+        authorizationTree.perform(strategy);
 
         return entries.stream()
                 .anyMatch(e -> e.username().equals(username) && e.access().canWrite());
