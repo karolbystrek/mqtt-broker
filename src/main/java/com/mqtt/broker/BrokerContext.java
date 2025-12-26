@@ -2,8 +2,6 @@ package com.mqtt.broker;
 
 import com.mqtt.broker.auth.AuthorizationService;
 import com.mqtt.broker.config.BrokerConfiguration;
-import com.mqtt.broker.event.BrokerEventListener;
-import com.mqtt.broker.event.BrokerEventPublisher;
 import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.service.MessageDeliveryService;
 import com.mqtt.broker.trie.RetainedMessage;
@@ -21,7 +19,6 @@ public class BrokerContext {
 
     private final BrokerConfiguration config;
     private final AuthorizationService authorizationService;
-    private final BrokerEventPublisher eventPublisher;
     private final TopicTree<Set<String>> subscriptionTree;
     private final TopicTree<RetainedMessage> retainedMessageTree;
     private final MessageDeliveryService messageDeliveryService;
@@ -33,8 +30,6 @@ public class BrokerContext {
     public BrokerContext(BrokerConfiguration config) {
         this.config = config;
         this.authorizationService = new AuthorizationService(config);
-        this.eventPublisher = new BrokerEventPublisher();
-        this.eventPublisher.addListener(new BrokerEventListener(this));
         this.subscriptionTree = new TopicTree<>();
         this.retainedMessageTree = new TopicTree<>();
         this.messageDeliveryService = new MessageDeliveryService(this);
