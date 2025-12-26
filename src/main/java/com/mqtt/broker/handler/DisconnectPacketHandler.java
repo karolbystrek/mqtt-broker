@@ -1,9 +1,8 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.event.CloseConnectionEvent;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.DisconnectPacket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,9 +12,9 @@ import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.withEvent;
 
-@RequiredArgsConstructor
 @Slf4j
-public final class DisconnectPacketHandlerStrategy implements PacketHandlerStrategy<DisconnectPacket> {
+@RequiredArgsConstructor
+class DisconnectPacketHandler implements PacketHandler<DisconnectPacket> {
 
     private final BrokerContext context;
 

@@ -1,7 +1,6 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.UnsubAckPacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
@@ -18,7 +17,7 @@ import static com.mqtt.broker.packet.MqttPacketType.UNSUBACK;
 
 @RequiredArgsConstructor
 @Slf4j
-public class UnsubscribePacketHandlerStrategy implements PacketHandlerStrategy<UnsubscribePacket> {
+class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
 
     private final BrokerContext context;
 

@@ -1,11 +1,10 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
@@ -30,7 +29,7 @@ import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
 @RequiredArgsConstructor
 @Slf4j
-public class ConnectPacketHandlerStrategy implements PacketHandlerStrategy<ConnectPacket> {
+public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
     private static final int PROTOCOL_VERSION = 4; // 3.1.1 protocol version
     private static final String PROTOCOL_NAME = "MQTT";

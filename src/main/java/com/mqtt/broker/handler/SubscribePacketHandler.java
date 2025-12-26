@@ -1,9 +1,8 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.event.ClientSubscribedEvent;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
@@ -23,7 +22,7 @@ import static com.mqtt.broker.packet.MqttPacketType.SUBACK;
 
 @RequiredArgsConstructor
 @Slf4j
-public class SubscribePacketHandlerStrategy implements PacketHandlerStrategy<SubscribePacket> {
+class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
 
     private static final int FAILURE_CODE = 0x80;
 

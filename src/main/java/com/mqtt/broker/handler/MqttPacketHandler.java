@@ -1,16 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.handler.strategy.ConnectPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.DisconnectPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PingReqPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PubAckPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PubCompPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PubRecPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PubRelPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.PublishPacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.SubscribePacketHandlerStrategy;
-import com.mqtt.broker.handler.strategy.UnsubscribePacketHandlerStrategy;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
@@ -30,28 +20,28 @@ import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupport
 
 public class MqttPacketHandler {
 
-    private final ConnectPacketHandlerStrategy connect;
-    private final DisconnectPacketHandlerStrategy disconnect;
-    private final PingReqPacketHandlerStrategy pingReq;
-    private final PubAckPacketHandlerStrategy pubAck;
-    private final PubCompPacketHandlerStrategy pubComp;
-    private final PubRecPacketHandlerStrategy pubRec;
-    private final PubRelPacketHandlerStrategy pubRel;
-    private final PublishPacketHandlerStrategy publish;
-    private final SubscribePacketHandlerStrategy subscribe;
-    private final UnsubscribePacketHandlerStrategy unsubscribe;
+    private final ConnectPacketHandler connect;
+    private final DisconnectPacketHandler disconnect;
+    private final PingReqPacketHandler pingReq;
+    private final PubAckPacketHandler pubAck;
+    private final PubCompPacketHandler pubComp;
+    private final PubRecPacketHandler pubRec;
+    private final PubRelPacketHandler pubRel;
+    private final PublishPacketHandler publish;
+    private final SubscribePacketHandler subscribe;
+    private final UnsubscribePacketHandler unsubscribe;
 
     public MqttPacketHandler(BrokerContext brokerContext) {
-        this.connect = new ConnectPacketHandlerStrategy(brokerContext);
-        this.disconnect = new DisconnectPacketHandlerStrategy(brokerContext);
-        this.pingReq = new PingReqPacketHandlerStrategy();
-        this.pubAck = new PubAckPacketHandlerStrategy();
-        this.pubComp = new PubCompPacketHandlerStrategy();
-        this.pubRec = new PubRecPacketHandlerStrategy();
-        this.pubRel = new PubRelPacketHandlerStrategy(brokerContext);
-        this.publish = new PublishPacketHandlerStrategy(brokerContext);
-        this.subscribe = new SubscribePacketHandlerStrategy(brokerContext);
-        this.unsubscribe = new UnsubscribePacketHandlerStrategy(brokerContext);
+        this.connect = new ConnectPacketHandler(brokerContext);
+        this.disconnect = new DisconnectPacketHandler(brokerContext);
+        this.pingReq = new PingReqPacketHandler();
+        this.pubAck = new PubAckPacketHandler();
+        this.pubComp = new PubCompPacketHandler();
+        this.pubRec = new PubRecPacketHandler();
+        this.pubRel = new PubRelPacketHandler(brokerContext);
+        this.publish = new PublishPacketHandler(brokerContext);
+        this.subscribe = new SubscribePacketHandler(brokerContext);
+        this.unsubscribe = new UnsubscribePacketHandler(brokerContext);
     }
 
     public HandlerResult handle(SocketChannel channel, MqttPacket packet) throws IOException {

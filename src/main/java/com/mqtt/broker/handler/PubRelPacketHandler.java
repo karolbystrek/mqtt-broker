@@ -1,8 +1,7 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PubCompPacket;
 import com.mqtt.broker.packet.PubRelPacket;
@@ -17,7 +16,7 @@ import static com.mqtt.broker.packet.MqttPacketType.PUBCOMP;
 
 @Slf4j
 @RequiredArgsConstructor
-public class PubRelPacketHandlerStrategy implements PacketHandlerStrategy<PubRelPacket> {
+class PubRelPacketHandler implements PacketHandler<PubRelPacket> {
 
     private final BrokerContext context;
 

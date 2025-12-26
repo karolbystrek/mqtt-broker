@@ -1,8 +1,7 @@
-package com.mqtt.broker.handler.strategy;
+package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.PublishEvent;
-import com.mqtt.broker.handler.HandlerResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubRecPacket;
@@ -19,9 +18,9 @@ import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
 
-@RequiredArgsConstructor
 @Slf4j
-public class PublishPacketHandlerStrategy implements PacketHandlerStrategy<PublishPacket> {
+@RequiredArgsConstructor
+class PublishPacketHandler implements PacketHandler<PublishPacket> {
 
     private final BrokerContext context;
 
