@@ -30,6 +30,7 @@ public final class ConnAckPacket extends MqttPacket {
         }
     }
 
+    @Getter
     public enum MqttConnectReturnCode {
         CONNECTION_ACCEPTED(0x00),
         CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION(0x01),
@@ -44,8 +45,5 @@ public final class ConnAckPacket extends MqttPacket {
             this.code = code;
         }
 
-        public int getCode() {
-            return code;
-        }
     }
 }

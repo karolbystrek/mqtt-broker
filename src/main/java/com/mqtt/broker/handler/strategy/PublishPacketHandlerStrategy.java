@@ -12,7 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.handler.HandlerResult.*;
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withEvent;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
 

@@ -1,4 +1,4 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PubRelPacket;
@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 
-public class PubRelDecoderStrategy implements DecoderStrategy<PubRelPacket> {
+class PubRelPacketDecoder implements PacketDecoder<PubRelPacket> {
 
     @Override
     public PubRelPacket decode(MqttFixedHeader header, ByteBuffer body) {

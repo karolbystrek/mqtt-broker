@@ -1,4 +1,4 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.MqttFixedHeader;
@@ -10,7 +10,7 @@ import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectPayload;
 import static com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 
-public class ConnectDecoderStrategy implements DecoderStrategy<ConnectPacket> {
+class ConnectPacketDecoder implements PacketDecoder<ConnectPacket> {
 
     @Override
     public ConnectPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {

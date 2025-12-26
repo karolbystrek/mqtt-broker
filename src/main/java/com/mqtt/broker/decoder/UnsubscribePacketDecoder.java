@@ -1,4 +1,4 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.UnsubscribePacket;
@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 
-public class UnsubscribeDecoderStrategy implements DecoderStrategy<UnsubscribePacket> {
+class UnsubscribePacketDecoder implements PacketDecoder<UnsubscribePacket> {
 
     @Override
     public UnsubscribePacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {

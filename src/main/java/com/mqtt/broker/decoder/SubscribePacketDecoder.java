@@ -1,4 +1,4 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttQoS;
@@ -11,7 +11,7 @@ import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.SubscribePacket.Subscription;
 
-public class SubscribeDecoderStrategy implements DecoderStrategy<SubscribePacket> {
+class SubscribePacketDecoder implements PacketDecoder<SubscribePacket> {
 
     @Override
     public SubscribePacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {

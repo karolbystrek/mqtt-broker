@@ -1,4 +1,4 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
@@ -9,7 +9,7 @@ import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
 import static com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 
-public class PublishDecoderStrategy implements DecoderStrategy<PublishPacket> {
+class PublishPacketDecoder implements PacketDecoder<PublishPacket> {
 
     @Override
     public PublishPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {

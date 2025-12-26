@@ -1,6 +1,5 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.decoder.strategy.*;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.MqttPacketType;
 
@@ -9,26 +8,35 @@ import java.util.Map;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeFixedHeader;
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
-import static com.mqtt.broker.packet.MqttPacketType.*;
+import static com.mqtt.broker.packet.MqttPacketType.CONNECT;
+import static com.mqtt.broker.packet.MqttPacketType.DISCONNECT;
+import static com.mqtt.broker.packet.MqttPacketType.PINGREQ;
+import static com.mqtt.broker.packet.MqttPacketType.PUBACK;
+import static com.mqtt.broker.packet.MqttPacketType.PUBCOMP;
+import static com.mqtt.broker.packet.MqttPacketType.PUBLISH;
+import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
+import static com.mqtt.broker.packet.MqttPacketType.PUBREL;
+import static com.mqtt.broker.packet.MqttPacketType.SUBSCRIBE;
+import static com.mqtt.broker.packet.MqttPacketType.UNSUBSCRIBE;
 import static java.util.Map.entry;
 import static java.util.Map.ofEntries;
 
 public class MqttPacketDecoder {
 
-    private final Map<MqttPacketType, DecoderStrategy<?>> decoders;
+    private final Map<MqttPacketType, PacketDecoder<?>> decoders;
 
     public MqttPacketDecoder() {
         this.decoders = ofEntries(
-                entry(CONNECT, new ConnectDecoderStrategy()),
-                entry(DISCONNECT, new DisconnectDecoderStrategy()),
-                entry(PUBLISH, new PublishDecoderStrategy()),
-                entry(PUBACK, new PubAckDecoderStrategy()),
-                entry(PINGREQ, new PingReqDecoderStrategy()),
-                entry(PUBREC, new PubRecDecoderStrategy()),
-                entry(PUBREL, new PubRelDecoderStrategy()),
-                entry(PUBCOMP, new PubCompDecoderStrategy()),
-                entry(SUBSCRIBE, new SubscribeDecoderStrategy()),
-                entry(UNSUBSCRIBE, new UnsubscribeDecoderStrategy())
+                entry(CONNECT, new ConnectPacketDecoder()),
+                entry(DISCONNECT, new DisconnectPacketDecoder()),
+                entry(PUBLISH, new PublishPacketDecoder()),
+                entry(PUBACK, new PubAckPacketDecoder()),
+                entry(PINGREQ, new PingReqPacketDecoder()),
+                entry(PUBREC, new PubRecPacketDecoder()),
+                entry(PUBREL, new PubRelPacketDecoder()),
+                entry(PUBCOMP, new PubCompPacketDecoder()),
+                entry(SUBSCRIBE, new SubscribePacketDecoder()),
+                entry(UNSUBSCRIBE, new UnsubscribePacketDecoder())
         );
     }
 
@@ -53,7 +61,7 @@ public class MqttPacketDecoder {
         return getDecoderFor(fixedHeader.packetType()).decode(fixedHeader, packetBody);
     }
 
-    private DecoderStrategy<?> getDecoderFor(MqttPacketType packetType) {
+    private PacketDecoder<?> getDecoderFor(MqttPacketType packetType) {
         var decoder = decoders.get(packetType);
         if (decoder == null) {
             throw unsupportedPacketType(packetType);

@@ -16,7 +16,9 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.mqtt.broker.handler.HandlerResult.*;
+import static com.mqtt.broker.handler.HandlerResult.empty;
+import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.SUBACK;
 
 @RequiredArgsConstructor

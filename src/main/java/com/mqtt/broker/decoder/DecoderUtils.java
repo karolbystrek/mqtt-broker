@@ -7,9 +7,10 @@ import java.nio.ByteBuffer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public final class DecoderUtils {
+class DecoderUtils {
 
     private DecoderUtils() {
+        throw new IllegalAccessError("Utility class");
     }
 
     public static MqttFixedHeader decodeFixedHeader(ByteBuffer buffer) {

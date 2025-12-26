@@ -1,11 +1,11 @@
-package com.mqtt.broker.decoder.strategy;
+package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PingReqPacket;
 
 import java.nio.ByteBuffer;
 
-public class PingReqDecoderStrategy implements DecoderStrategy<PingReqPacket> {
+class PingReqPacketDecoder implements PacketDecoder<PingReqPacket> {
 
     @Override
     public PingReqPacket decode(MqttFixedHeader fixedHeader, ByteBuffer buffer) {
