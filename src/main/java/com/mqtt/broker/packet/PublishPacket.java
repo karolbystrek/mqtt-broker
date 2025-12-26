@@ -9,7 +9,7 @@ import java.util.Optional;
 
 import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
+import static com.mqtt.broker.packet.MqttPacketType.PUBLISH;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 

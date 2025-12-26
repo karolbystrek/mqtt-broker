@@ -1,4 +1,4 @@
-package com.mqtt.broker.encoder.strategy;
+package com.mqtt.broker.encoder;
 
 import com.mqtt.broker.packet.PingRespPacket;
 
@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 
-public final class PingRespEncoderStrategy implements EncoderStrategy<PingRespPacket> {
+class PingRespPacketEncoder implements PacketEncoder<PingRespPacket> {
 
     @Override
     public ByteBuffer encode(PingRespPacket packet) {

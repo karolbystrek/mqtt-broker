@@ -1,7 +1,7 @@
 package com.mqtt.broker.packet;
 
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.PINGREQ;
+import static com.mqtt.broker.packet.MqttPacketType.PINGREQ;
 
 public final class PingReqPacket extends MqttPacket {
 

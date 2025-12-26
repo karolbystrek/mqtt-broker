@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.mqtt.broker.handler.HandlerResult.withEvent;
 import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.*;
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
+import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
 @RequiredArgsConstructor
 @Slf4j

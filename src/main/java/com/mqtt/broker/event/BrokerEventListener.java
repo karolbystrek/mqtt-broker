@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.channels.SocketChannel;
 import java.util.List;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
+import static com.mqtt.broker.packet.MqttPacketType.PUBLISH;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Slf4j

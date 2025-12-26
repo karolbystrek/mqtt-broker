@@ -13,7 +13,7 @@ import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
 import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBCOMP;
+import static com.mqtt.broker.packet.MqttPacketType.PUBCOMP;
 
 @Slf4j
 @RequiredArgsConstructor

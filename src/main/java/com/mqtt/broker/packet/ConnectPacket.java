@@ -3,7 +3,7 @@ package com.mqtt.broker.packet;
 import lombok.Getter;
 import lombok.ToString;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNECT;
+import static com.mqtt.broker.packet.MqttPacketType.CONNECT;
 
 @Getter
 @ToString

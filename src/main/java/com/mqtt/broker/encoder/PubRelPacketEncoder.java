@@ -1,16 +1,16 @@
-package com.mqtt.broker.encoder.strategy;
+package com.mqtt.broker.encoder;
 
-import com.mqtt.broker.packet.PubAckPacket;
+import com.mqtt.broker.packet.PubRelPacket;
 
 import java.nio.ByteBuffer;
 
 import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static java.nio.ByteBuffer.allocate;
 
-public final class PubAckEncoderStrategy implements EncoderStrategy<PubAckPacket> {
+class PubRelPacketEncoder implements PacketEncoder<PubRelPacket> {
 
     @Override
-    public ByteBuffer encode(PubAckPacket packet) {
+    public ByteBuffer encode(PubRelPacket packet) {
         var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
 
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);

@@ -1,4 +1,4 @@
-package com.mqtt.broker.encoder.strategy;
+package com.mqtt.broker.encoder;
 
 import com.mqtt.broker.packet.PublishPacket;
 
@@ -8,7 +8,7 @@ import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static com.mqtt.broker.encoder.EncoderUtils.encodeString;
 import static java.nio.ByteBuffer.allocate;
 
-public final class PublishEncoderStrategy implements EncoderStrategy<PublishPacket> {
+class PublishPacketEncoder implements PacketEncoder<PublishPacket> {
 
     @Override
     public ByteBuffer encode(PublishPacket packet) {

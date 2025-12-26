@@ -1,4 +1,4 @@
-package com.mqtt.broker.encoder.strategy;
+package com.mqtt.broker.encoder;
 
 import com.mqtt.broker.packet.ConnAckPacket;
 
@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static java.nio.ByteBuffer.allocate;
 
-public final class ConnAckEncoderStrategy implements EncoderStrategy<ConnAckPacket> {
+class ConnAckPacketEncoder implements PacketEncoder<ConnAckPacket> {
 
     @Override
     public ByteBuffer encode(ConnAckPacket packet) {

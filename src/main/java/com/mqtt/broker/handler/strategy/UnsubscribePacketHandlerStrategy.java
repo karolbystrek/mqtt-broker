@@ -14,7 +14,7 @@ import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.empty;
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBACK;
+import static com.mqtt.broker.packet.MqttPacketType.UNSUBACK;
 
 @RequiredArgsConstructor
 @Slf4j

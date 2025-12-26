@@ -1,21 +1,21 @@
 package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.decoder.strategy.*;
-import com.mqtt.broker.packet.MqttControlPacketType;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.packet.MqttPacketType;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeFixedHeader;
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.*;
+import static com.mqtt.broker.packet.MqttPacketType.*;
 import static java.util.Map.entry;
 import static java.util.Map.ofEntries;
 
 public class MqttPacketDecoder {
 
-    private final Map<MqttControlPacketType, DecoderStrategy<?>> decoders;
+    private final Map<MqttPacketType, DecoderStrategy<?>> decoders;
 
     public MqttPacketDecoder() {
         this.decoders = ofEntries(
@@ -53,7 +53,7 @@ public class MqttPacketDecoder {
         return getDecoderFor(fixedHeader.packetType()).decode(fixedHeader, packetBody);
     }
 
-    private DecoderStrategy<?> getDecoderFor(MqttControlPacketType packetType) {
+    private DecoderStrategy<?> getDecoderFor(MqttPacketType packetType) {
         var decoder = decoders.get(packetType);
         if (decoder == null) {
             throw unsupportedPacketType(packetType);

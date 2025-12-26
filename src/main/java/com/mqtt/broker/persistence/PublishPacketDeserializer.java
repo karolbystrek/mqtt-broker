@@ -9,7 +9,7 @@ import com.mqtt.broker.packet.PublishPacket;
 
 import java.io.IOException;
 
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBLISH;
+import static com.mqtt.broker.packet.MqttPacketType.PUBLISH;
 
 class PublishPacketDeserializer extends JsonDeserializer<PublishPacket> {
     @Override

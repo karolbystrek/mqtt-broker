@@ -5,7 +5,7 @@ import lombok.ToString;
 
 import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBREL;
+import static com.mqtt.broker.packet.MqttPacketType.PUBREL;
 
 @Getter
 @ToString

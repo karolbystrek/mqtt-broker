@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBREL;
+import static com.mqtt.broker.packet.MqttPacketType.PUBREL;
 
 @Slf4j
 public class PubRecPacketHandlerStrategy implements PacketHandlerStrategy<PubRecPacket> {

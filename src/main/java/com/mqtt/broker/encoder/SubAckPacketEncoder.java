@@ -1,4 +1,4 @@
-package com.mqtt.broker.encoder.strategy;
+package com.mqtt.broker.encoder;
 
 import com.mqtt.broker.packet.SubAckPacket;
 
@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import static com.mqtt.broker.encoder.EncoderUtils.encodeFixedHeader;
 import static java.nio.ByteBuffer.allocate;
 
-public final class SubAckEncoderStrategy implements EncoderStrategy<SubAckPacket> {
+class SubAckPacketEncoder implements PacketEncoder<SubAckPacket> {
 
     @Override
     public ByteBuffer encode(SubAckPacket packet) {

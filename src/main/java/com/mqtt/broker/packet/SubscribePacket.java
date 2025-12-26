@@ -7,7 +7,7 @@ import java.util.List;
 
 import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.SUBSCRIBE;
+import static com.mqtt.broker.packet.MqttPacketType.SUBSCRIBE;
 
 @Getter
 @ToString

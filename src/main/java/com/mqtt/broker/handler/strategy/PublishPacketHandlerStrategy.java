@@ -13,8 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.channels.SocketChannel;
 
 import static com.mqtt.broker.handler.HandlerResult.*;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBACK;
-import static com.mqtt.broker.packet.MqttControlPacketType.PUBREC;
+import static com.mqtt.broker.packet.MqttPacketType.PUBACK;
+import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
 
 @RequiredArgsConstructor
 @Slf4j

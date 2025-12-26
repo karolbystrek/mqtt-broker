@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.ToString;
 
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.CONNACK;
+import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
 @Getter
 @ToString

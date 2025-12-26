@@ -1,7 +1,7 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.packet.MqttControlPacketType;
 import com.mqtt.broker.packet.MqttFixedHeader;
+import com.mqtt.broker.packet.MqttPacketType;
 
 import java.nio.ByteBuffer;
 
@@ -14,7 +14,7 @@ public final class DecoderUtils {
 
     public static MqttFixedHeader decodeFixedHeader(ByteBuffer buffer) {
         byte headerByte1 = buffer.get();
-        var packetType = MqttControlPacketType.fromHeaderByte(headerByte1);
+        var packetType = MqttPacketType.fromHeaderByte(headerByte1);
         byte flags = (byte) (headerByte1 & 0x0F);
 
         int remainingLength = 0;

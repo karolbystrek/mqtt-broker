@@ -9,7 +9,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 @Getter
-public enum MqttControlPacketType {
+public enum MqttPacketType {
     CONNECT(1), // Client request to connect to Broker
     CONNACK(2), // Connect Acknowledgment
     PUBLISH(3), // Publish message
@@ -28,20 +28,20 @@ public enum MqttControlPacketType {
 
     private final int value;
 
-    private static final Map<Integer, MqttControlPacketType> valueToTypeMap = Arrays
+    private static final Map<Integer, MqttPacketType> valueToTypeMap = Arrays
             .stream(values())
-            .collect(toMap(MqttControlPacketType::getValue, identity()));
+            .collect(toMap(MqttPacketType::getValue, identity()));
 
-    MqttControlPacketType(int value) {
+    MqttPacketType(int value) {
         this.value = value;
     }
 
-    public static MqttControlPacketType fromHeaderByte(byte headerByte) {
+    public static MqttPacketType fromHeaderByte(byte headerByte) {
         int value = (headerByte >> 4) & 0x0F;
         return fromInt(value);
     }
 
-    public static MqttControlPacketType fromInt(int value) {
+    public static MqttPacketType fromInt(int value) {
         return valueToTypeMap.getOrDefault(value, UNKNOWN);
     }
 }

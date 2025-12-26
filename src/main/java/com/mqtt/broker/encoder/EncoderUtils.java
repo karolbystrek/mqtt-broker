@@ -6,10 +6,9 @@ import java.nio.ByteBuffer;
 
 import static java.nio.ByteBuffer.allocate;
 
-public final class EncoderUtils {
+class EncoderUtils {
 
     private EncoderUtils() {
-        throw new UnsupportedOperationException("Utility class");
     }
 
     public static ByteBuffer encodeFixedHeader(MqttFixedHeader header) {

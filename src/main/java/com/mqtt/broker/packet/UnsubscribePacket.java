@@ -6,7 +6,7 @@ import lombok.ToString;
 import java.util.List;
 
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
-import static com.mqtt.broker.packet.MqttControlPacketType.UNSUBSCRIBE;
+import static com.mqtt.broker.packet.MqttPacketType.UNSUBSCRIBE;
 import static java.util.List.copyOf;
 
 @Getter

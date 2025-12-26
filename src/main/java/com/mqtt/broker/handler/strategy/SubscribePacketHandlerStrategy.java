@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.mqtt.broker.handler.HandlerResult.*;
-import static com.mqtt.broker.packet.MqttControlPacketType.SUBACK;
+import static com.mqtt.broker.packet.MqttPacketType.SUBACK;
 
 @RequiredArgsConstructor
 @Slf4j

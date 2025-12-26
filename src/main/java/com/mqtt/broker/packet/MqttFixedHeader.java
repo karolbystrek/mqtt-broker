@@ -1,7 +1,7 @@
 package com.mqtt.broker.packet;
 
 public record MqttFixedHeader(
-        MqttControlPacketType packetType,
+        MqttPacketType packetType,
         byte flags,
         int remainingLength
 ) {
