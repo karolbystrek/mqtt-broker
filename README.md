@@ -1,121 +1,210 @@
 # MQTT Broker Project
 
-A custom, high-performance MQTT 3.1.1 compliant broker implementation in Java. This project demonstrates advanced software design patterns and low-level network programming without reliance on heavy frameworks.
+A custom, high-performance MQTT 3.1.1 compliant broker implementation in Java. This project demonstrates advanced software design patterns and low-level network programming without reliance on heavy frameworks like Spring Boot or Netty. It is designed for educational purposes to showcase architectural patterns "from scratch".
 
 ## 1. Physical Architecture
 
-The broker is designed to operate in a networked environment, listening for TCP connections from MQTT clients.
+The broker is designed to operate in a networked environment, typically deployed on a central server to manage communication between various IoT clients.
 
 **Deployment Topology:**
-*   **Node**: The broker runs on a host machine (Server/Workstation).
-*   **Network**: Uses standard TCP/IP networking.
-*   **Port**: Listens on port `1883` (default MQTT non-SSL port) for incoming client connections.
-*   **Clients**: Can accept connections from any MQTT 3.1.1 compliant client (e.g., IoT devices, Mobile Apps, Desktop Clients like MQTTX).
+*   **Host**: The broker runs on a JVM-enabled machine (Server/Workstation).
+*   **Protocol**: Uses TCP/IP for reliable transport.
+*   **Port**: Listens on port `1883` (Standard MQTT) by default.
+*   **Clients**: Accepts connections from any MQTT 3.1.1 compliant client (Sensors, Mobile Apps, Dashboards).
 
 ```mermaid
 graph TD
-    Client1[IoT Sensor] -->|TCP / MQTT| Broker[MQTT Broker Host :1883]
-    Client2[Mobile App] -->|TCP / MQTT| Broker
-    Client3[MQTTX Desktop] -->|TCP / MQTT| Broker
-    
-    subgraph Broker Host
-        Broker
+    subgraph Clients
+        C1[IoT Sensor Node]
+        C2[Mobile Application]
+        C3[Dashboard / Analytics]
     end
+
+    subgraph Network
+        TCP[TCP/IP Network]
+    end
+
+    subgraph Server_Node
+        Broker[MQTT Broker Process]
+        Store[File Persistence JSON]
+    end
+
+    C1 -->|MQTT over TCP :1883| TCP
+    C2 -->|MQTT over TCP :1883| TCP
+    C3 -->|MQTT over TCP :1883| TCP
+    TCP --> Broker
+    Broker -->|Read/Write| Store
 ```
 
 ## 2. Logical Architecture
 
 The application follows a **Reactor-like** event-driven architecture powered by Java NIO (Non-blocking I/O). It is structured into distinct logical layers to ensure separation of concerns.
 
-*   **Network Layer**: `ServerListener` and `Broker` loop manage the `Selector`. They handle raw bytes and maintain open `SocketChannel` connections.
-*   **Protocol Layer**: `Decoder` and `Encoder` classes translate between raw byte buffers and Java POJOs (`MqttPacket` records).
-*   **Handler Layer**: The `MqttPacketHandler` acts as a central dispatcher, routing packets to specific handlers (e.g., `ConnectPacketHandler`, `PublishPacketHandler`).
-*   **Core Domain**: Contains the business logic, including `AuthorizationService`, `SubscriptionRepository`, and the `TopicTree` (Trie) for topic matching.
-*   **Event System**: A synchronous event bus (`BrokerEventPublisher`) that decouples the main processing loop from side effects like logging or stats updates.
+1.  **Network Layer**: Managed by `ServerListener` and the main `Broker` loop. It handles the `Selector`, accepts `SocketChannel` connections, and manages raw byte reads/writes.
+2.  **Protocol Layer**: `Decoder` and `Encoder` classes translate between raw `ByteBuffer` data and Java POJOs (`MqttPacket` records).
+3.  **Dispatcher Layer**: The `MqttPacketHandler` acts as a central router, inspecting the packet type and delegating to the appropriate business logic handler.
+4.  **Domain/Business Layer**: Contains the core logic:
+    *   **Authorization**: Verifies credentials and permissions.
+    *   **Topic Tree**: A Trie data structure for efficient subscription matching.
+    *   **Session Management**: Handles persistent sessions and message queuing.
+5.  **Event System**: A synchronous event bus (`BrokerEventPublisher`) that decouples the main processing loop from side effects like logging, metrics, or complex inter-component notifications.
 
 ## 3. Implemented Design Patterns
 
-The following design patterns were implemented from scratch to solve specific architectural challenges.
+The following design patterns were implemented **from scratch** to solve specific architectural challenges.
 
 ### A. Strategy Pattern
-**Location**: 
-- `src/main/java/com/mqtt/broker/auth/strategy/AuthorizationStrategy.java` (Interface)
-- `src/main/java/com/mqtt/broker/trie/strategy/TrieStrategy.java` (Interface)
+**Location**:
+-   **Context**: `src/main/java/com/mqtt/broker/auth/AuthorizationService.java`
+-   **Interface**: `src/main/java/com/mqtt/broker/auth/strategy/AuthorizationStrategy.java`
+-   **Implementations**: `FileBasedAuthorizationStrategy`, `PermissiveAuthorizationStrategy`
 
-**Justification**: 
-The Strategy pattern was chosen to allow the broker's behavior to be swapped at runtime or configuration time without modifying the core logic. 
-1.  **Authorization**: We support multiple auth mechanisms (e.g., `FileBasedAuthorizationStrategy` for production-like envs vs `PermissiveAuthorizationStrategy` for testing). The `AuthorizationService` delegates the actual check to the configured strategy.
-2.  **Topic Tree Operations**: The Trie data structure uses strategies (`SubscriptionInsertionStrategy`, `SubscriptionPruningStrategy`) to define how the tree is traversed and modified. This isolates the complex recursive logic of tree manipulation from the data structure itself.
+**Justification**:
+The Strategy pattern allows the broker's authentication mechanism to be swapped at runtime based on configuration.
+-   **Problem**: We need strict authentication for production but open access for local testing. Hardcoding one logic path creates technical debt.
+-   **Solution**: The `AuthorizationService` holds a reference to the `AuthorizationStrategy` interface. At startup, depending on the `server.allowAnonymous` flag in `application.yml`, the system injects either the `FileBased` (checks `users.json`) or `Permissive` (allows all) strategy.
 
-### B. Observer Pattern
-**Location**: 
-- `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java` (Subject)
-- `src/main/java/com/mqtt/broker/event/EventListener.java` (Observer Interface)
-
-**Justification**: 
-The broker performs many critical actions (Client Connected, Message Published, Connection Lost). Hardcoding the reactions to these events (logging, metrics, cleanup) inside the main processing loop would violate the **Single Responsibility Principle**. 
-The Observer pattern allows the core system to simply "announce" that something happened. Multiple listeners (`ConnectionEventListener`, `DeliveryEventListener`) subscribe to these events and handle side effects independently. This makes the system highly extensible; adding a new logging metric doesn't require touching the packet handling logic.
-
-### C. Command Pattern (Dispatcher)
-**Location**: 
-- `src/main/java/com/mqtt/broker/handler/MqttPacketHandler.java` (Invoker/Dispatcher)
-- `src/main/java/com/mqtt/broker/handler/PacketHandler.java` (Command Interface)
-
-**Justification**: 
-MQTT has many distinct packet types (CONNECT, PUBLISH, SUBSCRIBE), each requiring unique processing logic. 
-Instead of a massive `if-else` block inside the main loop, we use a variation of the Command pattern. The `MqttPacketHandler` identifies the packet type and delegates execution to a specific `PacketHandler` implementation. This adheres to the **Open/Closed Principle**: adding support for a new packet type (if the protocol evolved) would only require adding a new Handler class, not modifying the existing complex logic.
-
-## 4. Visual Diagrams (UML)
-
-### A. UML Class Diagram (Core Components)
-
+**Diagram**:
 ```mermaid
 classDiagram
-    class Broker {
-        -Map connections
-        -MqttPacketHandler packetHandler
-        -BrokerEventPublisher eventPublisher
-        +start()
+    class AuthorizationService {
+        -AuthorizationStrategy strategy
+        +authenticate(username, password)
     }
-    
-    class MqttPacketHandler {
-        +handle(SocketChannel, MqttPacket)
-    }
-    
-    class PacketHandler {
+    class AuthorizationStrategy {
         <<interface>>
-        +handle(SocketChannel, Packet)
+        +authenticate(username, password)
+    }
+    class FileBasedAuthorizationStrategy {
+        +authenticate(username, password)
+    }
+    class PermissiveAuthorizationStrategy {
+        +authenticate(username, password)
     }
     
-    class ConnectPacketHandler {
-        +handle(SocketChannel, ConnectPacket)
-    }
-    
-    class PublishPacketHandler {
-        +handle(SocketChannel, PublishPacket)
-    }
-    
+    AuthorizationService --> AuthorizationStrategy
+    FileBasedAuthorizationStrategy ..|> AuthorizationStrategy
+    PermissiveAuthorizationStrategy ..|> AuthorizationStrategy
+```
+
+### B. Observer Pattern
+**Location**:
+-   **Subject**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
+-   **Observer Interface**: `src/main/java/com/mqtt/broker/event/EventListener.java`
+-   **Concrete Observers**: `ConnectionEventListener`, `DeliveryEventListener`, etc.
+
+**Justification**:
+The broker needs to perform auxiliary tasks (logging, updating stats, cleaning up resources) when state changes occur, without polluting the core packet processing logic.
+-   **Problem**: Adding logging or metrics directly into `ConnectPacketHandler` violates the **Single Responsibility Principle**.
+-   **Solution**: The core handlers publish events (e.g., `ClientConnectedEvent`) via the `BrokerEventPublisher`. Independent listeners subscribe to these events. This makes the system extensible; adding a new metric collector requires no changes to the core business logic.
+
+**Diagram**:
+```mermaid
+classDiagram
     class BrokerEventPublisher {
         -List~EventListener~ listeners
         +publish(BrokerEvent)
     }
-    
     class EventListener {
         <<interface>>
         +onEvent(BrokerEvent)
     }
+    class ConnectionEventListener {
+        +onEvent(BrokerEvent)
+    }
+    class DeliveryEventListener {
+        +onEvent(BrokerEvent)
+    }
     
-    Broker --> MqttPacketHandler
-    Broker --> BrokerEventPublisher
+    BrokerEventPublisher o-- EventListener
+    ConnectionEventListener ..|> EventListener
+    DeliveryEventListener ..|> EventListener
+```
+
+### C. Command Pattern (Dispatcher)
+**Location**:
+-   **Invoker**: `src/main/java/com/mqtt/broker/handler/MqttPacketHandler.java`
+-   **Command Interface**: `src/main/java/com/mqtt/broker/handler/PacketHandler.java`
+-   **Concrete Commands**: `ConnectPacketHandler`, `PublishPacketHandler`, `SubscribePacketHandler`, etc.
+
+**Justification**:
+MQTT has distinct packet types that require unique processing logic.
+-   **Problem**: Handling all packet types in a massive `switch` or `if-else` block leads to a "God Class" and violates the **Open/Closed Principle**.
+-   **Solution**: We map each `MqttPacketType` to a specific `PacketHandler`. The `MqttPacketHandler` identifies the type and calls `handle()`. Adding a new packet type (e.g., for MQTT 5.0) involves simply creating a new class and registering it, without modifying the dispatching mechanism.
+
+**Diagram**:
+```mermaid
+classDiagram
+    class MqttPacketHandler {
+        -Map~MqttPacketType, PacketHandler~ handlers
+        +handle(channel, packet)
+    }
+    class PacketHandler {
+        <<interface>>
+        +handle(channel, packet)
+    }
+    class ConnectPacketHandler {
+        +handle(channel, packet)
+    }
+    class PublishPacketHandler {
+        +handle(channel, packet)
+    }
+    class SubscribePacketHandler {
+        +handle(channel, packet)
+    }
+    
     MqttPacketHandler --> PacketHandler
     ConnectPacketHandler ..|> PacketHandler
     PublishPacketHandler ..|> PacketHandler
-    BrokerEventPublisher o-- EventListener
+    SubscribePacketHandler ..|> PacketHandler
 ```
 
-### B. Sequence Diagram: Connection Flow
+## 4. Visual Diagrams (UML)
 
-This diagram illustrates the process when a client attempts to connect to the broker.
+### A. UML Class Diagram (Core System)
+
+This diagram highlights the relationship between the central Broker, the networking layer, and the core processing components.
+
+```mermaid
+classDiagram
+    class Broker {
+        -Selector selector
+        -MqttPacketHandler packetHandler
+        -BrokerEventPublisher eventPublisher
+        +run()
+    }
+    
+    class ServerListener {
+        +bind(port)
+        +accept()
+    }
+    
+    class MqttPacketHandler {
+        +handle(channel, MqttPacket)
+    }
+    
+    class PacketHandler {
+        <<interface>>
+    }
+    
+    class AuthorizationService {
+        +authenticate()
+    }
+    
+    class SessionPersistenceService {
+        +saveSession()
+    }
+    
+    Broker --> ServerListener : uses
+    Broker --> MqttPacketHandler : delegates to
+    Broker --> SessionPersistenceService : uses
+    MqttPacketHandler --> PacketHandler : dispatches
+    MqttPacketHandler --> AuthorizationService : verifies
+```
+
+### B. Sequence Diagram: Client Connection Flow
+
+This diagram illustrates the interaction between components when a client connects.
 
 ```mermaid
 sequenceDiagram
@@ -127,79 +216,118 @@ sequenceDiagram
     participant AuthService
     participant Encoder
 
-    Client->>ServerListener: TCP Connect
-    ServerListener->>Broker: New SocketChannel
-    Client->>Broker: Send CONNECT Packet (bytes)
+    Client->>ServerListener: TCP SYN / Connect
+    ServerListener->>Broker: Accept SocketChannel
+    Client->>Broker: CONNECT Packet (Bytes)
     Broker->>Decoder: decode(buffer)
     Decoder-->>Broker: ConnectPacket Object
-    Broker->>ConnectHandler: handle(channel, packet)
+    Broker->>ConnectHandler: handle(ConnectPacket)
     ConnectHandler->>AuthService: authenticate(user, pass)
-    AuthService-->>ConnectHandler: Success
-    ConnectHandler-->>Broker: HandlerResult(CONNACK)
-    Broker->>Encoder: encode(ConnAckPacket)
-    Encoder-->>Broker: ByteBuffer
-    Broker->>Client: Send CONNACK (bytes)
+    
+    alt Authentication Success
+        AuthService-->>ConnectHandler: true
+        ConnectHandler-->>Broker: CONNACK (Success)
+        Broker->>Encoder: encode(ConnAckPacket)
+        Encoder-->>Broker: ByteBuffer
+        Broker->>Client: Send CONNACK
+    else Authentication Failed
+        AuthService-->>ConnectHandler: false
+        ConnectHandler-->>Broker: CONNACK (Refused)
+        Broker->>Client: Send CONNACK & Close
+    end
 ```
 
-### C. Activity Diagram: General Packet Processing Pipeline
+### C. Activity Diagram: Packet Processing Pipeline
+
+The lifecycle of an incoming packet from network read to response.
 
 ```mermaid
 flowchart TD
     Start((Packet Received)) --> Decode{Decode Successful?}
-    Decode -- No --> Wait[Wait for more bytes]
-    Decode -- Yes --> Dispatch[Dispatch to MqttPacketHandler]
+    Decode -- No / Partial --> Wait[Buffer & Wait for Bytes]
+    Decode -- Yes --> Dispatch[MqttPacketHandler.handle()]
     
-    Dispatch --> Switch{Packet Type}
-    Switch -- CONNECT --> H_Conn[ConnectHandler]
-    Switch -- PUBLISH --> H_Pub[PublishHandler]
-    Switch -- SUBSCRIBE --> H_Sub[SubscribeHandler]
+    Dispatch --> Type{Packet Type}
+    Type -- CONNECT --> H_Conn[ConnectPacketHandler]
+    Type -- PUBLISH --> H_Pub[PublishPacketHandler]
+    Type -- SUBSCRIBE --> H_Sub[SubscribePacketHandler]
     
     H_Conn --> Logic[Execute Business Logic]
     H_Pub --> Logic
     H_Sub --> Logic
     
-    Logic --> Result[Generate Response & Events]
+    Logic --> Persistence[Update Persistence / Session]
+    Logic --> Result[Generate Response Packet]
     
-    Result --> PubEvent[Publish Internal Events]
-    Result --> SendResp[Send Response Packet to Client]
-    
-    PubEvent --> End((Done))
-    SendResp --> End
+    Result --> Events[Publish System Events]
+    Result --> Encode[Encode Response]
+    Encode --> Send[Write to Socket]
+    Send --> End((End))
 ```
 
----
+## 5. Configuration & Persistence
 
-## 5. Running the Broker
+The broker behavior is controlled via configuration files and persistent storage located in the root directory.
+
+### Configuration (`application.yml`)
+Located at `src/main/resources/application.yml`. Controls server settings.
+*   **server.allowAnonymous**:
+    *   `true`: Uses `PermissiveAuthorizationStrategy` (Any username/password accepted).
+    *   `false`: Uses `FileBasedAuthorizationStrategy` (Validates against `users.json`).
+*   **server.port**: The TCP port (default: 1883).
+*   **server.cleanSession**: Default behavior for new sessions.
+
+### User Repository (`users.json`)
+Used when `allowAnonymous: false`. Defines valid users and their topic permissions.
+```json
+[
+  {
+    "username": "user",
+    "password": "password",
+    "permissions": [
+      { "topic": "readwrite/#", "access": "READ_WRITE" }
+    ]
+  }
+]
+```
+
+### Session Persistence (`sessions.json`)
+Stores active sessions, subscriptions, and queued messages. This ensures that if the broker restarts, persistent sessions (clients with `cleanSession=false`) do not lose their state or queued messages. This file is updated at runtime by the `SessionPersistenceService`.
+
+## 6. Running the Broker
 
 ### Prerequisites
-- Java 21 or higher
-- Maven
+*   Java 21 or higher (Project configured for Java 25 features).
+*   Maven (Wrapper included).
 
-### Execution
+### Execution Steps
 
-To run the broker, execute the following command from the root directory:
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd mqtt-broker
+    ```
 
-**macOS / Linux**
-```sh
-./mvnw clean compile exec:java
-```
+2.  **Run the application**:
+    Use the Maven wrapper to clean, compile, and execute the main class.
 
-**Windows**
-```sh
-mvnw.cmd clean compile exec:java
-```
+    **On macOS / Linux**:
+    ```bash
+    ./mvnw clean compile exec:java
+    ```
 
-The broker will start and listen for connections on `localhost:1883`.
+    **On Windows**:
+    ```cmd
+    mvnw.cmd clean compile exec:java
+    ```
 
-## 6. Testing
+The broker will start up and log "Broker started on port 1883".
 
-You can test the broker using **MQTTX**:
+## 7. Testing
 
-1.  Download [MQTTX](https://mqttx.app/).
-2.  Create a "New Connection".
-    *   **Host**: `localhost`
-    *   **Port**: `1883`
-    *   **Protocol**: MQTT 3.1.1
-3.  Click "Connect".
+To verify functionality, use an MQTT Client like **MQTTX**:
 
-If successful, the broker logs will show a `ClientConnectedEvent` and MQTTX will show "Connected".
+1.  Open MQTTX.
+2.  Create a connection to `localhost` on port `1883`.
+3.  If `allowAnonymous: false`, provide a username/password from `users.json`.
+4.  Connect and try publishing/subscribing to topics.
