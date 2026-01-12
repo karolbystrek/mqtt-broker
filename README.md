@@ -245,7 +245,7 @@ The lifecycle of an incoming packet from network read to response.
 flowchart TD
     Start((Packet Received)) --> Decode{Decode Successful?}
     Decode -- No / Partial --> Wait[Buffer & Wait for Bytes]
-    Decode -- Yes --> Dispatch[MqttPacketHandler.handle()]
+    Decode -- Yes --> Dispatch["MqttPacketHandler.handle()"]
     
     Dispatch --> Type{Packet Type}
     Type -- CONNECT --> H_Conn[ConnectPacketHandler]
@@ -272,7 +272,7 @@ The broker behavior is controlled via configuration files and persistent storage
 ### Configuration (`application.yml`)
 Located at `src/main/resources/application.yml`. Controls server settings.
 *   **server.allowAnonymous**:
-    *   `true`: Uses `PermissiveAuthorizationStrategy` (Any username/password accepted).
+    *   `true`: Uses `PermissiveAuthorizationStrategy` (No credentials required).
     *   `false`: Uses `FileBasedAuthorizationStrategy` (Validates against `users.json`).
 *   **server.port**: The TCP port (default: 1883).
 *   **server.cleanSession**: Default behavior for new sessions.
