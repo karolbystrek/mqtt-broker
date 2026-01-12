@@ -4,9 +4,11 @@ import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.connection.ClientConnection;
 import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
-import com.mqtt.broker.event.BrokerEventListener;
 import com.mqtt.broker.event.BrokerEventPublisher;
 import com.mqtt.broker.event.ConnectionLostEvent;
+import com.mqtt.broker.event.listener.ConnectionEventListener;
+import com.mqtt.broker.event.listener.DeliveryEventListener;
+import com.mqtt.broker.event.listener.SubscriptionEventListener;
 import com.mqtt.broker.handler.MqttPacketHandler;
 import com.mqtt.broker.packet.MqttPacket;
 import lombok.extern.slf4j.Slf4j;
@@ -28,13 +30,14 @@ import static java.util.Optional.ofNullable;
 public class Broker implements AutoCloseable {
     private final AtomicBoolean running = new AtomicBoolean(true);
 
+    private final Map<SocketChannel, ClientConnection> connections = new ConcurrentHashMap<>();
+
     private final BrokerConfiguration config;
     private final BrokerContext context;
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder packetDecoder;
     private final MqttPacketHandler packetHandler;
-    private final Map<SocketChannel, ClientConnection> connections;
     private final BrokerEventPublisher eventPublisher;
     private final ServerListener serverListener;
     private final ExecutorService packetExecutor;
@@ -43,13 +46,16 @@ public class Broker implements AutoCloseable {
         this.config = config;
         this.context = context;
         this.selector = Selector.open();
-        this.connections = new ConcurrentHashMap<>();
         this.serverListener = new ServerListener(selector, config, connections);
         this.serverChannel = serverListener.setup();
         this.packetDecoder = new MqttPacketDecoder();
         this.packetHandler = new MqttPacketHandler(context);
         this.eventPublisher = new BrokerEventPublisher();
-        eventPublisher.addListener(new BrokerEventListener(context));
+
+        eventPublisher.addListener(new ConnectionEventListener(context));
+        eventPublisher.addListener(new SubscriptionEventListener(context));
+        eventPublisher.addListener(new DeliveryEventListener(context));
+
         this.packetExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
