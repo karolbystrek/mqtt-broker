@@ -1,6 +1,8 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.connection.ClientConnection;
+import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.event.BrokerEventListener;
 import com.mqtt.broker.event.BrokerEventPublisher;
@@ -10,18 +12,16 @@ import com.mqtt.broker.packet.MqttPacket;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.nio.channels.SelectionKey.OP_ACCEPT;
-import static java.nio.channels.SelectionKey.OP_READ;
 import static java.util.Optional.ofNullable;
 
 @Slf4j
@@ -34,19 +34,23 @@ public class Broker implements AutoCloseable {
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder packetDecoder;
     private final MqttPacketHandler packetHandler;
-    private final Map<SocketChannel, ByteBuffer> clientBuffers;
+    private final Map<SocketChannel, ClientConnection> connections;
     private final BrokerEventPublisher eventPublisher;
+    private final ServerListener serverListener;
+    private final ExecutorService packetExecutor;
 
     public Broker(BrokerConfiguration config, BrokerContext context) throws IOException {
         this.config = config;
         this.context = context;
         this.selector = Selector.open();
-        this.serverChannel = setupServer(selector, config);
+        this.connections = new ConcurrentHashMap<>();
+        this.serverListener = new ServerListener(selector, config, connections);
+        this.serverChannel = serverListener.setup();
         this.packetDecoder = new MqttPacketDecoder();
         this.packetHandler = new MqttPacketHandler(context);
-        this.clientBuffers = new ConcurrentHashMap<>();
         this.eventPublisher = new BrokerEventPublisher();
         eventPublisher.addListener(new BrokerEventListener(context));
+        this.packetExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     public void start() {
@@ -63,7 +67,7 @@ public class Broker implements AutoCloseable {
                     var key = keyIterator.next();
                     try {
                         if (key.isAcceptable()) {
-                            acceptConnection(key);
+                            serverListener.accept(key);
                         } else if (key.isReadable()) {
                             handleRead(key);
                         }
@@ -82,16 +86,17 @@ public class Broker implements AutoCloseable {
 
     private void handleRead(SelectionKey key) throws IOException {
         var clientChannel = (SocketChannel) key.channel();
-        var buffer = clientBuffers.get(clientChannel);
-        if (buffer == null) {
+        var connection = connections.get(clientChannel);
+        if (connection == null) {
             return;
         }
-        int bytesRead = clientChannel.read(buffer);
+        int bytesRead = connection.read();
         if (bytesRead == -1) {
-            log.info("Connection closed by: {}", clientChannel.getRemoteAddress());
+            log.info("Connection closed by: {}", connection.getRemoteAddress());
             cleanupClient(key);
             return;
         }
+        var buffer = connection.getBuffer();
         buffer.flip(); // flip the buffer for reading
         while (buffer.hasRemaining()) {
             var optionalPacket = packetDecoder.decode(buffer);
@@ -99,26 +104,21 @@ public class Broker implements AutoCloseable {
                 buffer.reset(); // incomplete packet, wait for more data
                 break;
             }
-            processPacket(clientChannel, optionalPacket);
+            packetExecutor.submit(() -> processPacket(clientChannel, optionalPacket));
         }
         buffer.compact(); // compact the buffer to preserve incomplete data
     }
 
-    private void processPacket(SocketChannel clientChannel, MqttPacket packet) throws IOException {
-        updateClientActivity(clientChannel);
-        var handlerResult = packetHandler.handle(clientChannel, packet);
-        handlerResult.responsePacket()
-                .ifPresent(responsePacket -> context.getMessageDeliveryService().send(clientChannel, responsePacket));
-        handlerResult.event().ifPresent(eventPublisher::publish);
-    }
-
-    private void acceptConnection(SelectionKey key) throws IOException {
-        var serverChannel = (ServerSocketChannel) key.channel();
-        var clientChannel = serverChannel.accept();
-        clientChannel.configureBlocking(false);
-        clientChannel.register(selector, OP_READ);
-        clientBuffers.put(clientChannel, ByteBuffer.allocate(8192));
-        log.info("Accepted new connection from {}", clientChannel.getRemoteAddress());
+    private void processPacket(SocketChannel clientChannel, MqttPacket packet) {
+        try {
+            updateClientActivity(clientChannel);
+            var handlerResult = packetHandler.handle(clientChannel, packet);
+            handlerResult.responsePacket()
+                    .ifPresent(responsePacket -> context.getMessageDeliveryService().send(clientChannel, responsePacket));
+            handlerResult.event().ifPresent(eventPublisher::publish);
+        } catch (Exception e) {
+            log.error("Error processing packet from {}: {}", clientChannel, e.getMessage());
+        }
     }
 
     private void updateClientActivity(SocketChannel clientChannel) {
@@ -143,11 +143,14 @@ public class Broker implements AutoCloseable {
         eventPublisher.publish(new ConnectionLostEvent(clientChannel));
         try {
             key.cancel();
-            clientChannel.close();
+            var connection = connections.remove(clientChannel);
+            if (connection != null) {
+                connection.close();
+            } else {
+                clientChannel.close();
+            }
         } catch (IOException e) {
             log.error("Error closing client channel: {}", e.getMessage());
-        } finally {
-            clientBuffers.remove(clientChannel);
         }
     }
 
@@ -157,6 +160,9 @@ public class Broker implements AutoCloseable {
         running.set(false);
         if (selector != null) {
             selector.wakeup();
+        }
+        if (packetExecutor != null) {
+            packetExecutor.close();
         }
     }
 
@@ -170,13 +176,5 @@ public class Broker implements AutoCloseable {
         } catch (IOException e) {
             log.error("Error closing broker: {}", e.getMessage());
         }
-    }
-
-    private static ServerSocketChannel setupServer(Selector selector, BrokerConfiguration config) throws IOException {
-        var serverChannel = ServerSocketChannel.open();
-        serverChannel.bind(new InetSocketAddress(config.getServer().getHost(), config.getServer().getPort()));
-        serverChannel.configureBlocking(false);
-        serverChannel.register(selector, OP_ACCEPT);
-        return serverChannel;
     }
 }

@@ -27,14 +27,16 @@ public class MessageDeliveryService {
 
     public void send(SocketChannel channel, MqttPacket packet) {
         var encodedPacketBuffer = packetEncoder.encode(packet);
-        try {
-            var bufferToSend = encodedPacketBuffer.duplicate();
+        synchronized (channel) {
+            try {
+                var bufferToSend = encodedPacketBuffer.duplicate();
 
-            while (bufferToSend.hasRemaining()) {
-                channel.write(bufferToSend);
+                while (bufferToSend.hasRemaining()) {
+                    channel.write(bufferToSend);
+                }
+            } catch (IOException e) {
+                log.error("Failed to send packet to client {}: {}", channel, e.getMessage());
             }
-        } catch (IOException e) {
-            log.error("Failed to send packet to client {}: {}", channel, e.getMessage());
         }
     }
 
@@ -54,6 +56,12 @@ public class MessageDeliveryService {
             context.getRetainedMessageTree().perform(strategy);
         }
 
+        var publishPacket = getPublishPacket(packet);
+
+        forwardToSubscribers(publishPacket);
+    }
+
+    private PublishPacket getPublishPacket(PublishPacket packet) {
         PublishPacket livePacket = packet;
         if (packet.isRetain()) {
             byte flags = packet.getFixedHeader().flags();
@@ -66,8 +74,7 @@ public class MessageDeliveryService {
             livePacket = new PublishPacket(newFixedHeader, packet.getVariableHeader(),
                     packet.getPayload());
         }
-
-        forwardToSubscribers(livePacket);
+        return livePacket;
     }
 
     public void dispatchPendingMessages(SocketChannel clientChannel, Session session) {

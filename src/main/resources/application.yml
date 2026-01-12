@@ -2,7 +2,7 @@ server:
   host: localhost
   port: 1883
   cleanSession: true
-  allowAnonymous: false
+  allowAnonymous: true
 mqtt:
   keepAliveCheckIntervalMs: 1000
 logging:

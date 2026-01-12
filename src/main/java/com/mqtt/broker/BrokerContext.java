@@ -17,29 +17,24 @@ import java.util.concurrent.ConcurrentHashMap;
 @Getter
 public class BrokerContext {
 
+    private final Map<String, SocketChannel> clientIdToChannel = new ConcurrentHashMap<>();
+    private final Map<SocketChannel, Session> activeSessions = new ConcurrentHashMap<>();
+    private final Map<String, Session> persistentSessions = new ConcurrentHashMap<>();
+    private final TopicTree<Set<String>> subscriptionTree = new TopicTree<>();
+    private final TopicTree<RetainedMessage> retainedMessageTree = new TopicTree<>();
+
     private final BrokerConfiguration config;
     private final AuthorizationService authorizationService;
-    private final TopicTree<Set<String>> subscriptionTree;
-    private final TopicTree<RetainedMessage> retainedMessageTree;
     private final MessageDeliveryService messageDeliveryService;
-    private final Map<String, SocketChannel> clientIdToChannel;
-    private final Map<SocketChannel, Session> activeSessions;
-    private final Map<String, Session> persistentSessions;
     private final SessionPersistenceService sessionPersistenceService;
 
     public BrokerContext(BrokerConfiguration config) {
         this.config = config;
         this.authorizationService = new AuthorizationService(config);
-        this.subscriptionTree = new TopicTree<>();
-        this.retainedMessageTree = new TopicTree<>();
         this.messageDeliveryService = new MessageDeliveryService(this);
-        this.clientIdToChannel = new ConcurrentHashMap<>();
         this.sessionPersistenceService = new SessionPersistenceService();
-        this.activeSessions = new ConcurrentHashMap<>();
-        if (config.getServer().isCleanSession()) {
-            this.persistentSessions = new ConcurrentHashMap<>();
-        } else {
-            this.persistentSessions = new ConcurrentHashMap<>(sessionPersistenceService.load());
+        if (!config.getServer().isCleanSession()) {
+            this.persistentSessions.putAll(sessionPersistenceService.load());
         }
     }
 
