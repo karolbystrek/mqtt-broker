@@ -27,7 +27,7 @@ class PublishPacketHandler implements PacketHandler<PublishPacket> {
     @Override
     public HandlerResult handle(SocketChannel clientChannel, PublishPacket packet) {
         var session = context.getSession(clientChannel);
-        var topic = packet.getVariableHeader().topicName();
+        var topic = packet.variableHeader().topicName();
 
         if (isAuthorized(session.getUsername(), topic)) {
             return handleAuthorized(clientChannel, packet);
@@ -56,7 +56,7 @@ class PublishPacketHandler implements PacketHandler<PublishPacket> {
     }
 
     private HandlerResult handleUnAuthorized(PublishPacket packet, String username) {
-        log.warn("Unauthorized PUBLISH attempt by user '{}' on topic '{}'", username, packet.getVariableHeader().topicName());
+        log.warn("Unauthorized PUBLISH attempt by user '{}' on topic '{}'", username, packet.variableHeader().topicName());
         return packet.getPacketIdentifier()
                 .map(packetId -> switch (packet.getQosLevel()) {
                     case AT_LEAST_ONCE -> withResponse(createPubAck(packetId));

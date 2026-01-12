@@ -2,8 +2,6 @@ package com.mqtt.broker.packet;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.ToString;
 
 import java.util.Optional;
 
@@ -13,43 +11,48 @@ import static com.mqtt.broker.packet.MqttPacketType.PUBLISH;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
-@Getter
-@ToString
-public final class PublishPacket extends MqttPacket {
+public record PublishPacket(
+        MqttFixedHeader fixedHeader,
+        PublishVariableHeader variableHeader,
+        byte[] payload
+) implements MqttPacket {
 
-    private final PublishVariableHeader variableHeader;
-    private final byte[] payload; // payload is raw bytes as it can be anything
-
-
-    public PublishPacket(MqttFixedHeader fixedHeader, PublishVariableHeader variableHeader, byte[] payload) {
-        super(fixedHeader);
+    public PublishPacket {
         if (fixedHeader.packetType() != PUBLISH) {
             throw invalidPacketType(PublishPacket.class);
         }
         if (variableHeader.topicName == null || variableHeader.topicName.isEmpty()) {
             throw new IllegalArgumentException("Topic name cannot be null or empty");
         }
-        if (getQosLevel().requiresPacketId() && variableHeader.packetIdentifier <= 0) {
-            throw new IllegalArgumentException("Packet Identifier must be greater than 0 for QoS levels 1 and 2");
-        }
-        if (variableHeader.packetIdentifier() < 0 || variableHeader.packetIdentifier() > 65535) {
+        if (variableHeader.packetIdentifier < 0 || variableHeader.packetIdentifier > 65535) {
             throw invalidPacketIdentifier();
         }
-        this.variableHeader = variableHeader;
-        this.payload = payload != null ? payload.clone() : new byte[0];
+
+        int qosValue = (fixedHeader.flags() & 0b0000_0110) >> 1;
+        MqttQoS qos = MqttQoS.fromInt(qosValue);
+        if (qos.requiresPacketId() && variableHeader.packetIdentifier <= 0) {
+            throw new IllegalArgumentException("Packet Identifier must be greater than 0 for QoS levels 1 and 2");
+        }
+
+        payload = payload != null ? payload.clone() : new byte[0];
+    }
+
+    @Override
+    public byte[] payload() {
+        return payload.clone();
     }
 
     public boolean isDup() {
-        return (getFixedHeader().flags() & 0b0000_1000) != 0;
+        return (fixedHeader.flags() & 0b0000_1000) != 0;
     }
 
     public MqttQoS getQosLevel() {
-        int qosValue = (getFixedHeader().flags() & 0b0000_0110) >> 1;
+        int qosValue = (fixedHeader.flags() & 0b0000_0110) >> 1;
         return MqttQoS.fromInt(qosValue);
     }
 
     public boolean isRetain() {
-        return (getFixedHeader().flags() & 0b0000_0001) != 0;
+        return (fixedHeader.flags() & 0b0000_0001) != 0;
     }
 
     public Optional<Integer> getPacketIdentifier() {

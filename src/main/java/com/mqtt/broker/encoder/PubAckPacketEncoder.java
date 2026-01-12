@@ -11,12 +11,12 @@ class PubAckPacketEncoder implements PacketEncoder<PubAckPacket> {
 
     @Override
     public ByteBuffer encode(PubAckPacket packet) {
-        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.fixedHeader());
 
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
 
         fullPacket.put(fixedHeaderBuffer);
-        fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.putShort((short) packet.packetIdentifier());
         fullPacket.flip();
 
         return fullPacket;

@@ -12,10 +12,10 @@ class ConnAckPacketEncoder implements PacketEncoder<ConnAckPacket> {
     @Override
     public ByteBuffer encode(ConnAckPacket packet) {
         byte[] variableHeader = new byte[2];
-        variableHeader[0] = (byte) (packet.getVariableHeader().isSessionPresent() ? 0x01 : 0x00);
-        variableHeader[1] = (byte) packet.getVariableHeader().returnCode();
+        variableHeader[0] = (byte) (packet.variableHeader().isSessionPresent() ? 0x01 : 0x00);
+        variableHeader[1] = (byte) packet.variableHeader().returnCode();
 
-        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.fixedHeader());
 
         var buffer = allocate(fixedHeaderBuffer.remaining() + variableHeader.length);
         buffer.put(fixedHeaderBuffer);

@@ -1,36 +1,28 @@
 package com.mqtt.broker.packet;
 
-import lombok.Getter;
-import lombok.ToString;
-
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
-@Getter
-@ToString
-public final class ConnAckPacket extends MqttPacket {
+public record ConnAckPacket(
+        MqttFixedHeader fixedHeader,
+        ConnAckVariableHeader variableHeader
+) implements MqttPacket {
 
-    private final ConnAckVariableHeader variableHeader;
-
-    public ConnAckPacket(MqttFixedHeader fixedHeader, ConnAckVariableHeader variableHeader) {
-        super(fixedHeader);
+    public ConnAckPacket {
         if (fixedHeader.packetType() != CONNACK) {
             throw invalidPacketType(ConnAckPacket.class);
         }
-        this.variableHeader = variableHeader;
     }
 
     public record ConnAckVariableHeader(
             byte connectAcknowledgeFlags,
             int returnCode
     ) {
-
         public boolean isSessionPresent() {
             return (connectAcknowledgeFlags & 0x01) != 0;
         }
     }
 
-    @Getter
     public enum MqttConnectReturnCode {
         CONNECTION_ACCEPTED(0x00),
         CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION(0x01),
@@ -45,5 +37,8 @@ public final class ConnAckPacket extends MqttPacket {
             this.code = code;
         }
 
+        public int getCode() {
+            return code;
+        }
     }
 }

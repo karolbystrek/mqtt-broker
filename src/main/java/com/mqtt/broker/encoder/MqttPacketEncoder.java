@@ -38,7 +38,7 @@ public final class MqttPacketEncoder {
             case SubAckPacket p -> subAck.encode(p);
             case UnsubAckPacket p -> unsubAck.encode(p);
             case PingRespPacket p -> pingResp.encode(p);
-            default -> throw unsupportedPacketType(packet.getFixedHeader().packetType());
+            default -> throw unsupportedPacketType(packet.fixedHeader().packetType());
         };
     }
 }

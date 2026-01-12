@@ -1,30 +1,24 @@
 package com.mqtt.broker.packet;
 
-import lombok.Getter;
-import lombok.ToString;
-
 import java.util.List;
 
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttPacketType.UNSUBSCRIBE;
 import static java.util.List.copyOf;
 
-@Getter
-@ToString
-public final class UnsubscribePacket extends MqttPacket {
+public record UnsubscribePacket(
+        MqttFixedHeader fixedHeader,
+        int packetIdentifier,
+        List<String> topicFilters
+) implements MqttPacket {
 
-    private final int packetIdentifier;
-    private final List<String> topicFilters;
-
-    public UnsubscribePacket(MqttFixedHeader fixedHeader, int packetIdentifier, List<String> topicFilters) {
-        super(fixedHeader);
+    public UnsubscribePacket {
         if (fixedHeader.packetType() != UNSUBSCRIBE) {
             throw invalidPacketType(UnsubscribePacket.class);
         }
         if (fixedHeader.flags() != 0b0010) {
             throw invalidPacketType(UnsubscribePacket.class);
         }
-        this.packetIdentifier = packetIdentifier;
-        this.topicFilters = copyOf(topicFilters);
+        topicFilters = copyOf(topicFilters);
     }
 }

@@ -11,12 +11,12 @@ class PubRelPacketEncoder implements PacketEncoder<PubRelPacket> {
 
     @Override
     public ByteBuffer encode(PubRelPacket packet) {
-        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.fixedHeader());
 
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
 
         fullPacket.put(fixedHeaderBuffer);
-        fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.putShort((short) packet.packetIdentifier());
         fullPacket.flip();
 
         return fullPacket;

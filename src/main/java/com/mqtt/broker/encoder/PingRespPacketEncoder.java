@@ -10,6 +10,6 @@ class PingRespPacketEncoder implements PacketEncoder<PingRespPacket> {
 
     @Override
     public ByteBuffer encode(PingRespPacket packet) {
-        return encodeFixedHeader(packet.getFixedHeader());
+        return encodeFixedHeader(packet.fixedHeader());
     }
 }

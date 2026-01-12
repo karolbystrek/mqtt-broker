@@ -11,12 +11,12 @@ class PublishPacketSerializer extends JsonSerializer<PublishPacket> {
     @Override
     public void serialize(PublishPacket value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
         gen.writeStartObject();
-        gen.writeStringField("topic", value.getVariableHeader().topicName());
-        gen.writeNumberField("packetId", value.getVariableHeader().packetIdentifier());
+        gen.writeStringField("topic", value.variableHeader().topicName());
+        gen.writeNumberField("packetId", value.variableHeader().packetIdentifier());
         gen.writeNumberField("qos", value.getQosLevel().getValue());
         gen.writeBooleanField("retain", value.isRetain());
         gen.writeBooleanField("dup", value.isDup());
-        gen.writeBinaryField("payload", value.getPayload());
+        gen.writeBinaryField("payload", value.payload());
         gen.writeEndObject();
     }
 }

@@ -29,7 +29,7 @@ class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
             return empty();
         }
 
-        packet.getTopicFilters().forEach(topicFilter -> {
+        packet.topicFilters().forEach(topicFilter -> {
             clientSession.removeSubscription(topicFilter);
 
             String[] levels = topicFilter.split("/");
@@ -38,6 +38,6 @@ class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
         });
 
         var unsubAckFixedHeader = new MqttFixedHeader(UNSUBACK, (byte) 0, 2);
-        return withResponse(new UnsubAckPacket(unsubAckFixedHeader, packet.getPacketIdentifier()));
+        return withResponse(new UnsubAckPacket(unsubAckFixedHeader, packet.packetIdentifier()));
     }
 }

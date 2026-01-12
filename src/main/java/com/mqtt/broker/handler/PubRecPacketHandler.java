@@ -15,6 +15,6 @@ class PubRecPacketHandler implements PacketHandler<PubRecPacket> {
     @Override
     public HandlerResult handle(SocketChannel clientChannel, PubRecPacket packet) throws IOException {
         var fixedHeader = new MqttFixedHeader(PUBREL, (byte) 2, 2);
-        return withResponse(new PubRelPacket(fixedHeader, packet.getPacketIdentifier()));
+        return withResponse(new PubRelPacket(fixedHeader, packet.packetIdentifier()));
     }
 }

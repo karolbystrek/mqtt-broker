@@ -1,15 +1,10 @@
 package com.mqtt.broker.packet;
 
-import lombok.ToString;
-
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttPacketType.DISCONNECT;
 
-@ToString
-public final class DisconnectPacket extends MqttPacket {
-
-    public DisconnectPacket(MqttFixedHeader fixedHeader) {
-        super(fixedHeader);
+public record DisconnectPacket(MqttFixedHeader fixedHeader) implements MqttPacket {
+    public DisconnectPacket {
         if (fixedHeader.packetType() != DISCONNECT) {
             throw invalidPacketType(DisconnectPacket.class);
         }

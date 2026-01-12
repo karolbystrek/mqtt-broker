@@ -1,26 +1,16 @@
 package com.mqtt.broker.packet;
 
-import lombok.Getter;
-import lombok.ToString;
-
 import static com.mqtt.broker.exception.InvalidPacketIdentifierException.invalidPacketIdentifier;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
 
-@Getter
-@ToString
-public final class PubRecPacket extends MqttPacket {
-
-    private final int packetIdentifier;
-
-    public PubRecPacket(MqttFixedHeader fixedHeader, int packetIdentifier) {
-        super(fixedHeader);
+public record PubRecPacket(MqttFixedHeader fixedHeader, int packetIdentifier) implements MqttPacket {
+    public PubRecPacket {
         if (fixedHeader.packetType() != PUBREC) {
             throw invalidPacketType(PubRecPacket.class);
         }
         if (packetIdentifier < 0 || packetIdentifier > 65535) {
             throw invalidPacketIdentifier();
         }
-        this.packetIdentifier = packetIdentifier;
     }
 }

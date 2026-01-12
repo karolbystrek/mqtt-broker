@@ -12,12 +12,12 @@ class PubCompPacketEncoder implements PacketEncoder<PubCompPacket> {
     @Override
     public ByteBuffer encode(PubCompPacket packet) {
 
-        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.fixedHeader());
 
         var fullPacket = allocate(fixedHeaderBuffer.remaining() + 2);
 
         fullPacket.put(fixedHeaderBuffer);
-        fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.putShort((short) packet.packetIdentifier());
         fullPacket.flip();
 
         return fullPacket;

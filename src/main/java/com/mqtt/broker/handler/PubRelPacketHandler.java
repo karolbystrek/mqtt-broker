@@ -23,7 +23,7 @@ class PubRelPacketHandler implements PacketHandler<PubRelPacket> {
     @Override
     public HandlerResult handle(SocketChannel clientChannel, PubRelPacket packet) {
         var session = context.getSession(clientChannel);
-        int packetId = packet.getPacketIdentifier();
+        int packetId = packet.packetIdentifier();
 
         var message = session.retrieveIncomingMessage(packetId);
         var fixedHeader = new MqttFixedHeader(PUBCOMP, (byte) 0, 2);

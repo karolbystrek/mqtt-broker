@@ -40,7 +40,7 @@ class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
         var grantedTopics = new ArrayList<String>();
         var username = session.getUsername();
 
-        packet.getSubscriptions().forEach(subscription -> {
+        packet.subscriptions().forEach(subscription -> {
             var topic = subscription.topic();
             if (isAuthorized(username, topic)) {
                 session.addSubscription(topic, subscription.qos());
@@ -60,7 +60,7 @@ class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
             }
         });
 
-        var subAckPacket = createSubAck(packet.getPacketIdentifier(), grantedQosLevels);
+        var subAckPacket = createSubAck(packet.packetIdentifier(), grantedQosLevels);
         if (grantedTopics.isEmpty()) {
             return withResponse(subAckPacket);
         }

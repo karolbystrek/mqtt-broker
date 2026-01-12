@@ -56,7 +56,7 @@ public class MqttPacketHandler {
             case PublishPacket p -> publish.handle(channel, p);
             case SubscribePacket p -> subscribe.handle(channel, p);
             case UnsubscribePacket p -> unsubscribe.handle(channel, p);
-            default -> throw unsupportedPacketType(packet.getFixedHeader().packetType());
+            default -> throw unsupportedPacketType(packet.fixedHeader().packetType());
         };
     }
 }

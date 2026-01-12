@@ -1,13 +1,20 @@
 package com.mqtt.broker.packet;
 
-import lombok.Getter;
+public sealed interface MqttPacket permits
+        ConnAckPacket,
+        ConnectPacket,
+        DisconnectPacket,
+        PingReqPacket,
+        PingRespPacket,
+        PubAckPacket,
+        PubCompPacket,
+        PublishPacket,
+        PubRecPacket,
+        PubRelPacket,
+        SubAckPacket,
+        SubscribePacket,
+        UnsubAckPacket,
+        UnsubscribePacket {
 
-@Getter
-public abstract class MqttPacket {
-
-    private final MqttFixedHeader fixedHeader;
-
-    protected MqttPacket(MqttFixedHeader fixedHeader) {
-        this.fixedHeader = fixedHeader;
-    }
+    MqttFixedHeader fixedHeader();
 }

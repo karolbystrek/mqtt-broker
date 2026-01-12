@@ -11,19 +11,19 @@ class SubAckPacketEncoder implements PacketEncoder<SubAckPacket> {
 
     @Override
     public ByteBuffer encode(SubAckPacket packet) {
-        int payloadSize = packet.getGrantedQosLevels().size();
+        int payloadSize = packet.grantedQosLevels().size();
         var payload = allocate(payloadSize);
-        packet.getGrantedQosLevels().forEach(qos -> payload.put(qos.byteValue()));
+        packet.grantedQosLevels().forEach(qos -> payload.put(qos.byteValue()));
         payload.flip();
 
         int variableHeaderSize = 2; // Packet Identifier
         int remainingLength = variableHeaderSize + payloadSize;
 
-        var fixedHeader = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeader = encodeFixedHeader(packet.fixedHeader());
 
         var fullPacket = allocate(fixedHeader.remaining() + remainingLength);
         fullPacket.put(fixedHeader);
-        fullPacket.putShort((short) packet.getPacketIdentifier());
+        fullPacket.putShort((short) packet.packetIdentifier());
         fullPacket.put(payload);
         fullPacket.flip();
 

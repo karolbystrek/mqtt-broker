@@ -3,19 +3,10 @@ package com.mqtt.broker.packet;
 import static com.mqtt.broker.exception.InvalidPacketTypeException.invalidPacketType;
 import static com.mqtt.broker.packet.MqttPacketType.PINGRESP;
 
-public final class PingRespPacket extends MqttPacket {
-
-    public PingRespPacket(MqttFixedHeader fixedHeader) {
-        super(fixedHeader);
+public record PingRespPacket(MqttFixedHeader fixedHeader) implements MqttPacket {
+    public PingRespPacket {
         if (fixedHeader.packetType() != PINGRESP) {
             throw invalidPacketType(PingRespPacket.class);
         }
-    }
-
-    @Override
-    public String toString() {
-        return "PingRespPacket{" +
-                "fixedHeader=" + getFixedHeader() +
-                '}';
     }
 }

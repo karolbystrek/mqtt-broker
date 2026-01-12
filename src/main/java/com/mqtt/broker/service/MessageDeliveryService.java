@@ -42,11 +42,11 @@ public class MessageDeliveryService {
 
     public void dispatch(PublishPacket packet) {
         if (packet.isRetain()) {
-            var topic = packet.getVariableHeader().topicName();
+            var topic = packet.variableHeader().topicName();
             RetainedMessage retainedMessage = null;
-            if (packet.getPayload() != null && packet.getPayload().length > 0) {
+            if (packet.payload() != null && packet.payload().length > 0) {
                 log.info("Retaining message for topic: {}, QoS: {}", topic, packet.getQosLevel());
-                retainedMessage = new RetainedMessage(packet.getPayload(), packet.getQosLevel());
+                retainedMessage = new RetainedMessage(packet.payload(), packet.getQosLevel());
             } else {
                 log.info("Clearing retained message for topic: {}", topic);
             }
@@ -64,15 +64,15 @@ public class MessageDeliveryService {
     private PublishPacket getPublishPacket(PublishPacket packet) {
         PublishPacket livePacket = packet;
         if (packet.isRetain()) {
-            byte flags = packet.getFixedHeader().flags();
+            byte flags = packet.fixedHeader().flags();
             flags &= (byte) 0b1111_1110;
 
             var newFixedHeader = new MqttFixedHeader(
-                    packet.getFixedHeader().packetType(),
+                    packet.fixedHeader().packetType(),
                     flags,
-                    packet.getFixedHeader().remainingLength());
-            livePacket = new PublishPacket(newFixedHeader, packet.getVariableHeader(),
-                    packet.getPayload());
+                    packet.fixedHeader().remainingLength());
+            livePacket = new PublishPacket(newFixedHeader, packet.variableHeader(),
+                    packet.payload());
         }
         return livePacket;
     }
@@ -83,7 +83,7 @@ public class MessageDeliveryService {
     }
 
     private void forwardToSubscribers(PublishPacket packet) {
-        var topic = packet.getVariableHeader().topicName();
+        var topic = packet.variableHeader().topicName();
         var subscribedClientIds = new CopyOnWriteArraySet<String>();
 
         String[] levels = topic.split("/");

@@ -1,24 +1,17 @@
 package com.mqtt.broker.packet;
 
-import lombok.Getter;
-import lombok.ToString;
-
 import static com.mqtt.broker.packet.MqttPacketType.CONNECT;
 
-@Getter
-@ToString
-public final class ConnectPacket extends MqttPacket {
+public record ConnectPacket(
+        MqttFixedHeader fixedHeader,
+        ConnectVariableHeader variableHeader,
+        ConnectPayload payload
+) implements MqttPacket {
 
-    private final ConnectVariableHeader variableHeader;
-    private final ConnectPayload payload;
-
-    public ConnectPacket(MqttFixedHeader fixedHeader, ConnectVariableHeader variableHeader, ConnectPayload payload) {
-        super(fixedHeader);
+    public ConnectPacket {
         if (fixedHeader.packetType() != CONNECT) {
             throw new IllegalArgumentException("Invalid packet type for ConnectPacket: " + fixedHeader.packetType());
         }
-        this.variableHeader = variableHeader;
-        this.payload = payload;
     }
 
     public record ConnectVariableHeader(

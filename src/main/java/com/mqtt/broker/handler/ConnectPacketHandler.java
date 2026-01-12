@@ -48,9 +48,9 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             return validationResult.get();
         }
 
-        String clientId = packet.getPayload().clientId();
-        String username = packet.getPayload().username();
-        var variableHeader = packet.getVariableHeader();
+        String clientId = packet.payload().clientId();
+        String username = packet.payload().username();
+        var variableHeader = packet.variableHeader();
 
         // Handle existing connection with same Client ID
         SocketChannel existingClientChannel = context.getClientChannel(clientId);
@@ -76,8 +76,8 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
         if (variableHeader.willFlag()) {
             session.setWillMessage(new WillMessage(
-                    packet.getPayload().willTopic(),
-                    packet.getPayload().willMessage(),
+                    packet.payload().willTopic(),
+                    packet.payload().willMessage(),
                     variableHeader.willRetain(),
                     variableHeader.willQos()
             ));
@@ -92,7 +92,7 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
     }
 
     private Optional<HandlerResult> validateConnection(ConnectPacket packet, SocketChannel clientChannel) throws IOException {
-        var variableHeader = packet.getVariableHeader();
+        var variableHeader = packet.variableHeader();
 
         if (!isProtocolValid(variableHeader)) {
             log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
@@ -107,7 +107,7 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             return Optional.of(withEvent(new CloseConnectionEvent(clientChannel)));
         }
 
-        String clientId = packet.getPayload().clientId();
+        String clientId = packet.payload().clientId();
         if (!isClientIdValid(clientId)) {
             log.warn("Connection refused for {}: Identifier rejected", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(
@@ -116,8 +116,8 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             ));
         }
 
-        var username = packet.getPayload().username();
-        var password = packet.getPayload().password();
+        var username = packet.payload().username();
+        var password = packet.payload().password();
         if (!context.getAuthorizationService().authenticate(username, password)) {
             log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(

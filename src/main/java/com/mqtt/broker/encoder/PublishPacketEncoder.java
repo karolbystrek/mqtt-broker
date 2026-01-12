@@ -12,27 +12,27 @@ class PublishPacketEncoder implements PacketEncoder<PublishPacket> {
 
     @Override
     public ByteBuffer encode(PublishPacket packet) {
-        var fixedHeaderBuffer = encodeFixedHeader(packet.getFixedHeader());
+        var fixedHeaderBuffer = encodeFixedHeader(packet.fixedHeader());
 
-        int variableHeaderLength = 2 + packet.getVariableHeader().topicName().length();
+        int variableHeaderLength = 2 + packet.variableHeader().topicName().length();
         if (packet.getQosLevel().requiresPacketId()) {
             variableHeaderLength += 2; // packet identifier
         }
 
-        int remainingLength = variableHeaderLength + packet.getPayload().length;
+        int remainingLength = variableHeaderLength + packet.payload().length;
 
         var buffer = allocate(fixedHeaderBuffer.remaining() + remainingLength);
 
         buffer.put(fixedHeaderBuffer);
 
-        encodeString(buffer, packet.getVariableHeader().topicName());
+        encodeString(buffer, packet.variableHeader().topicName());
 
         // Write packet identifier if QoS > 0
         if (packet.getQosLevel().requiresPacketId()) {
-            buffer.putShort((short) packet.getVariableHeader().packetIdentifier());
+            buffer.putShort((short) packet.variableHeader().packetIdentifier());
         }
 
-        buffer.put(packet.getPayload());
+        buffer.put(packet.payload());
         buffer.flip();
 
         return buffer;
