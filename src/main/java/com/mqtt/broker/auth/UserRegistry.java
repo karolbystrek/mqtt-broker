@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.mqtt.broker.trie.TopicValidator.validateTopic;
-
 @Slf4j
 public class UserRegistry {
 
@@ -37,12 +35,7 @@ public class UserRegistry {
         try {
             List<User> users = objectMapper.readValue(USERS_FILE, new TypeReference<>() {
             });
-            users.forEach(user -> {
-                if (user.permissions() != null) {
-                    user.permissions().forEach(permission -> validateTopic(permission.topic()));
-                }
-                this.users.put(user.username(), user);
-            });
+            users.forEach(user -> this.users.put(user.username(), user));
             log.info("Loaded {} users from {}", users.size(), USERS_FILE);
         } catch (JsonProcessingException e) {
             log.error("Error parsing users file: {}", e.getMessage());
@@ -51,7 +44,7 @@ public class UserRegistry {
         }
     }
 
-    public User getUserBy(String username) {
+    public User getUser(String username) {
         return users.get(username);
     }
 

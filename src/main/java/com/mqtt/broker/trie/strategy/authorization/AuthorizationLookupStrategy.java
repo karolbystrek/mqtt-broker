@@ -1,7 +1,8 @@
-package com.mqtt.broker.trie.strategy;
+package com.mqtt.broker.trie.strategy.authorization;
 
 import com.mqtt.broker.auth.AuthorizationEntry;
 import com.mqtt.broker.trie.TrieNode;
+import com.mqtt.broker.trie.strategy.TrieStrategy;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Set;

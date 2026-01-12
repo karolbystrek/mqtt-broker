@@ -6,7 +6,7 @@ import com.mqtt.broker.event.ClientSubscribedEvent;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
-import com.mqtt.broker.trie.strategy.SubscriptionInsertionStrategy;
+import com.mqtt.broker.trie.TopicPath;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,9 +45,7 @@ class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
             if (isAuthorized(username, topic)) {
                 session.addSubscription(topic, subscription.qos());
 
-                String[] levels = topic.split("/");
-                var strategy = new SubscriptionInsertionStrategy(levels, session.getClientId());
-                context.getSubscriptionTree().perform(strategy);
+                context.getSubscriptionRepository().add(session.getClientId(), TopicPath.parse(topic));
 
                 grantedQosLevels.add(subscription.qos().getValue());
                 grantedTopics.add(topic);

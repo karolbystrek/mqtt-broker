@@ -1,4 +1,4 @@
-package com.mqtt.broker.trie;
+package com.mqtt.broker.trie.strategy.retainedMessage;
 
 import com.mqtt.broker.packet.MqttQoS;
 

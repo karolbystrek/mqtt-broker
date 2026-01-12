@@ -3,15 +3,13 @@ package com.mqtt.broker;
 import com.mqtt.broker.auth.AuthorizationService;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.persistence.SessionPersistenceService;
+import com.mqtt.broker.repository.RetainedMessageRepository;
+import com.mqtt.broker.repository.SubscriptionRepository;
 import com.mqtt.broker.service.MessageDeliveryService;
-import com.mqtt.broker.trie.RetainedMessage;
-import com.mqtt.broker.trie.TopicTree;
-import com.mqtt.broker.trie.strategy.SubscriptionPruningStrategy;
 import lombok.Getter;
 
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
@@ -20,8 +18,9 @@ public class BrokerContext {
     private final Map<String, SocketChannel> clientIdToChannel = new ConcurrentHashMap<>();
     private final Map<SocketChannel, Session> activeSessions = new ConcurrentHashMap<>();
     private final Map<String, Session> persistentSessions = new ConcurrentHashMap<>();
-    private final TopicTree<Set<String>> subscriptionTree = new TopicTree<>();
-    private final TopicTree<RetainedMessage> retainedMessageTree = new TopicTree<>();
+
+    private final SubscriptionRepository subscriptionRepository = new SubscriptionRepository();
+    private final RetainedMessageRepository retainedMessageRepository = new RetainedMessageRepository();
 
     private final BrokerConfiguration config;
     private final AuthorizationService authorizationService;
@@ -66,8 +65,7 @@ public class BrokerContext {
         }
         clientIdToChannel.remove(session.getClientId());
         if (session.isCleanSession()) {
-            var strategy = new SubscriptionPruningStrategy(session.getClientId());
-            subscriptionTree.perform(strategy);
+            subscriptionRepository.removeForClient(session.getClientId());
         } else {
             persistentSessions.put(session.getClientId(), session);
         }

@@ -1,5 +1,6 @@
 package com.mqtt.broker.auth;
 
+import com.mqtt.broker.trie.TopicPath;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
 
@@ -14,7 +15,7 @@ public record User(
 ) {
 
     public record TopicPermission(
-            String topic,
+            TopicPath topic,
             PermissionLevel access
     ) {
 

@@ -5,9 +5,8 @@ import com.mqtt.broker.Session;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
-import com.mqtt.broker.trie.RetainedMessageWithTopic;
-import com.mqtt.broker.trie.strategy.RetainedMessageFinderStrategy;
-import com.mqtt.broker.trie.strategy.SubscriptionInsertionStrategy;
+import com.mqtt.broker.trie.TopicPath;
+import com.mqtt.broker.trie.strategy.retainedMessage.RetainedMessageWithTopic;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,9 +37,7 @@ public class BrokerEventListener implements EventListener {
         log.info("Handling ClientConnectedEvent for client: {}", session.getClientId());
         context.getMessageDeliveryService().dispatchPendingMessages(channel, session);
         session.getSubscriptions().forEach((topic, qos) -> {
-            String[] levels = topic.split("/");
-            var strategy = new SubscriptionInsertionStrategy(levels, session.getClientId());
-            context.getSubscriptionTree().perform(strategy);
+            context.getSubscriptionRepository().add(session.getClientId(), TopicPath.parse(topic));
         });
     }
 
@@ -49,7 +46,7 @@ public class BrokerEventListener implements EventListener {
     }
 
     private void handlePublishEvent(PublishPacket packet) {
-        log.info("Handling PublishEvent for packet: {}", packet.getPacketIdentifier());
+        log.info("Handling PublishEvent for packet: {}", packet.variableHeader().packetIdentifier());
         context.getMessageDeliveryService().dispatch(packet);
     }
 
@@ -59,9 +56,7 @@ public class BrokerEventListener implements EventListener {
 
         for (String topicFilter : topicFilters) {
             var retainedMessages = new java.util.ArrayList<RetainedMessageWithTopic>();
-            String[] levels = topicFilter.split("/");
-            var strategy = new RetainedMessageFinderStrategy(levels, retainedMessages);
-            context.getRetainedMessageTree().perform(strategy);
+            context.getRetainedMessageRepository().find(TopicPath.parse(topicFilter), retainedMessages);
 
             for (var retainedMsgWithTopic : retainedMessages) {
                 var retainedMsg = retainedMsgWithTopic.message();

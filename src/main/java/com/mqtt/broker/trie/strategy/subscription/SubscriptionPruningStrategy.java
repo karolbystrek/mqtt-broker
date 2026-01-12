@@ -1,6 +1,7 @@
-package com.mqtt.broker.trie.strategy;
+package com.mqtt.broker.trie.strategy.subscription;
 
 import com.mqtt.broker.trie.TrieNode;
+import com.mqtt.broker.trie.strategy.TrieStrategy;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Set;

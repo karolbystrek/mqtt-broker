@@ -6,9 +6,8 @@ import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
-import com.mqtt.broker.trie.RetainedMessage;
-import com.mqtt.broker.trie.strategy.RetainedMessageLookupStrategy;
-import com.mqtt.broker.trie.strategy.SubscriberLookupStrategy;
+import com.mqtt.broker.trie.TopicPath;
+import com.mqtt.broker.trie.strategy.retainedMessage.RetainedMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,9 +50,7 @@ public class MessageDeliveryService {
                 log.info("Clearing retained message for topic: {}", topic);
             }
 
-            String[] levels = topic.split("/");
-            var strategy = new RetainedMessageLookupStrategy(levels, retainedMessage);
-            context.getRetainedMessageTree().perform(strategy);
+            context.getRetainedMessageRepository().add(TopicPath.parse(topic), retainedMessage);
         }
 
         var publishPacket = getPublishPacket(packet);
@@ -86,9 +83,7 @@ public class MessageDeliveryService {
         var topic = packet.variableHeader().topicName();
         var subscribedClientIds = new CopyOnWriteArraySet<String>();
 
-        String[] levels = topic.split("/");
-        var strategy = new SubscriberLookupStrategy(levels, subscribedClientIds);
-        context.getSubscriptionTree().perform(strategy);
+        context.getSubscriptionRepository().findSubscribers(TopicPath.parse(topic), subscribedClientIds);
 
         if (subscribedClientIds.isEmpty()) {
             return;

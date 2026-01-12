@@ -1,7 +1,7 @@
-package com.mqtt.broker.trie.strategy;
+package com.mqtt.broker.trie.strategy.retainedMessage;
 
-import com.mqtt.broker.trie.RetainedMessage;
 import com.mqtt.broker.trie.TrieNode;
+import com.mqtt.broker.trie.strategy.TrieStrategy;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
