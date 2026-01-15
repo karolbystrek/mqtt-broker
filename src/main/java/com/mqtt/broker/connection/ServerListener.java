@@ -25,7 +25,7 @@ public class ServerListener implements ConnectionListener {
 
     public ServerSocketChannel setup() throws IOException {
         var serverChannel = ServerSocketChannel.open();
-        serverChannel.bind(new InetSocketAddress(config.getServer().getHost(), config.getServer().getPort()));
+        serverChannel.bind(new InetSocketAddress(config.getHost(), config.getPort()));
         serverChannel.configureBlocking(false);
         serverChannel.register(selector, OP_ACCEPT);
         return serverChannel;

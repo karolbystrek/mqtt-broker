@@ -36,7 +36,7 @@ public class BrokerContext {
         this.config = config;
 
         AuthorizationStrategy strategy;
-        if (config.getServer().isAllowAnonymous()) {
+        if (config.isAllowAnonymous()) {
             log.info("Anonymous access allowed.");
             strategy = new PermissiveAuthorizationStrategy();
         } else {
@@ -47,7 +47,7 @@ public class BrokerContext {
 
         this.messageDeliveryService = new MessageDeliveryService(this);
         this.sessionPersistenceService = new SessionPersistenceService();
-        if (!config.getServer().isCleanSession()) {
+        if (!config.isCleanSession()) {
             this.persistentSessions.putAll(sessionPersistenceService.load());
         }
     }
@@ -87,7 +87,7 @@ public class BrokerContext {
     }
 
     public void persistSessions() {
-        if (!config.getServer().isCleanSession()) {
+        if (!config.isCleanSession()) {
             activeSessions.values().stream()
                     .filter(s -> !s.isCleanSession())
                     .forEach(s -> persistentSessions.put(s.getClientId(), s));
