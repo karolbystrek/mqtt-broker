@@ -86,16 +86,24 @@ classDiagram
     class AuthorizationService {
         -AuthorizationStrategy strategy
         +authenticate(ConnectPacket)
+        +canSubscribe(username, topic)
+        +canPublish(username, topic)
     }
     class AuthorizationStrategy {
         <<interface>>
         +authenticate(ConnectPacket)
+        +canSubscribe(username, topic)
+        +canPublish(username, topic)
     }
     class FileBasedAuthorizationStrategy {
         +authenticate(ConnectPacket)
+        +canSubscribe(username, topic)
+        +canPublish(username, topic)
     }
     class PermissiveAuthorizationStrategy {
         +authenticate(ConnectPacket)
+        +canSubscribe(username, topic)
+        +canPublish(username, topic)
     }
     
     
@@ -183,28 +191,27 @@ MQTT has distinct packet types that require unique processing logic.
 ```mermaid
 classDiagram
     class MqttPacketHandler {
-        -Map~MqttPacketType, PacketHandler~ handlers
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PacketHandler {
         <<interface>>
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class ConnectPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class DisconnectPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
  
     class PublishPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class SubscribePacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class UnsubscribePacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     
     MqttPacketHandler --> PacketHandler
@@ -220,27 +227,26 @@ classDiagram
 ```mermaid
 classDiagram
     class MqttPacketHandler {
-        -Map~MqttPacketType, PacketHandler~ handlers
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PacketHandler {
         <<interface>>
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PingReqPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PubAckPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PubCompPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PubRecPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     class PubRelPacketHandler {
-        +handle(channel, packet)
+        +handle(channel, packet) ProcessingResult
     }
     
     MqttPacketHandler --> PacketHandler
@@ -313,20 +319,27 @@ classDiagram
 - **Performance Overhead**: Passing a request down a long chain involves many method calls.
 - **Order Dependency**: The pipeline relies heavily on the correct order of interceptors (e.g., Auth must come before
   Handling).
--   **Debugging**: It can be difficult to pinpoint which interceptor stopped the chain or modified the request.
+- **Debugging**: It can be difficult to pinpoint which interceptor stopped the chain or modified the request.
 
 ### E. Builder Pattern
+
 **Location**:
--   **Broker Construction**: `src/main/java/com/mqtt/broker/BrokerBuilder.java`
--   **Event System**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
--   **Pipeline**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
+
+- **Broker Construction**: `src/main/java/com/mqtt/broker/BrokerBuilder.java`
+- **Event System**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
+- **Pipeline**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
 
 **Justification**:
 Complex objects like the `Broker` or the processing `Pipeline` have many optional dependencies or configuration steps.
--   **Problem**: Using a constructor with many parameters (Telescoping Constructor Anti-pattern) is unreadable and error-prone. Passing `null` for optional dependencies is confusing.
--   **Solution**: We use the Builder pattern to construct these objects step-by-step. This provides a fluent API, allows for sensible defaults (e.g., default `MqttPacketDecoder`), and ensures the final object is fully initialized and immutable where possible.
+
+- **Problem**: Using a constructor with many parameters (Telescoping Constructor Anti-pattern) is unreadable and
+  error-prone. Passing `null` for optional dependencies is confusing.
+- **Solution**: We use the Builder pattern to construct these objects step-by-step. This provides a fluent API, allows
+  for sensible defaults (e.g., default `MqttPacketDecoder`), and ensures the final object is fully initialized and
+  immutable where possible.
 
 **Diagram**:
+
 ```mermaid
 classDiagram
     class PacketProcessingPipeline {
@@ -366,8 +379,10 @@ classDiagram
 ```
 
 **Trade-offs**:
--   **Verbosity**: Requires creating a separate inner static class or external builder class, doubling the lines of code for that type.
--   **Duplicate Fields**: The Builder usually mirrors the fields of the target class, leading to duplication.
+
+- **Verbosity**: Requires creating a separate inner static class or external builder class, doubling the lines of code
+  for that type.
+- **Duplicate Fields**: The Builder usually mirrors the fields of the target class, leading to duplication.
 
 ## 4. Visual Diagrams (UML)
 
@@ -377,40 +392,6 @@ This diagram highlights the relationship between the central Broker, the network
 components.
 
 ```mermaid
-classDiagram
-    class Broker {
-        -Selector selector
-        -MqttPacketHandler packetHandler
-        -BrokerEventPublisher eventPublisher
-        +run()
-    }
-    
-    class ServerListener {
-        +bind(port)
-        +accept()
-    }
-    
-    class MqttPacketHandler {
-        +handle(channel, MqttPacket)
-    }
-    
-    class PacketHandler {
-        <<interface>>
-    }
-    
-    class AuthorizationService {
-        +authenticate()
-    }
-    
-    class SessionPersistenceService {
-        +saveSession()
-    }
-    
-    Broker --> ServerListener : uses
-    Broker --> MqttPacketHandler : delegates to
-    Broker --> SessionPersistenceService : uses
-    MqttPacketHandler --> PacketHandler : dispatches
-    MqttPacketHandler --> AuthorizationService : verifies
 ```
 
 ### B. Sequence Diagram: Client Connection Flow
@@ -418,34 +399,6 @@ classDiagram
 This diagram illustrates the interaction between components when a client connects.
 
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant ServerListener
-    participant Broker
-    participant Decoder
-    participant ConnectHandler
-    participant AuthService
-    participant Encoder
-
-    Client->>ServerListener: TCP SYN / Connect
-    ServerListener->>Broker: Accept SocketChannel
-    Client->>Broker: CONNECT Packet (Bytes)
-    Broker->>Decoder: decode(buffer)
-    Decoder-->>Broker: ConnectPacket Object
-    Broker->>ConnectHandler: handle(ConnectPacket)
-    ConnectHandler->>AuthService: authenticate(ConnectPacket)
-    
-    alt Authentication Success
-        AuthService-->>ConnectHandler: true
-        ConnectHandler-->>Broker: CONNACK (Success)
-        Broker->>Encoder: encode(ConnAckPacket)
-        Encoder-->>Broker: ByteBuffer
-        Broker->>Client: Send CONNACK
-    else Authentication Failed
-        AuthService-->>ConnectHandler: false
-        ConnectHandler-->>Broker: CONNACK (Refused)
-        Broker->>Client: Send CONNACK & Close
-    end
 ```
 
 ### C. Activity Diagram: Packet Processing Pipeline
@@ -453,27 +406,6 @@ sequenceDiagram
 The lifecycle of an incoming packet from network read to response.
 
 ```mermaid
-flowchart TD
-    Start((Packet Received)) --> Decode{Decode Successful?}
-    Decode -- No / Partial --> Wait[Buffer & Wait for Bytes]
-    Decode -- Yes --> Dispatch["MqttPacketHandler.handle()"]
-    
-    Dispatch --> Type{Packet Type}
-    Type -- CONNECT --> H_Conn[ConnectPacketHandler]
-    Type -- PUBLISH --> H_Pub[PublishPacketHandler]
-    Type -- SUBSCRIBE --> H_Sub[SubscribePacketHandler]
-    
-    H_Conn --> Logic[Execute Business Logic]
-    H_Pub --> Logic
-    H_Sub --> Logic
-    
-    Logic --> Persistence[Update Persistence / Session]
-    Logic --> Result[Generate Response Packet]
-    
-    Result --> Events[Publish System Events]
-    Result --> Encode[Encode Response]
-    Encode --> Send[Write to Socket]
-    Send --> End((End))
 ```
 
 ## 5. Configuration & Persistence
@@ -519,7 +451,7 @@ by the `SessionPersistenceService`.
 
 ### Prerequisites
 
-* Java 21 or higher (Project configured for Java 25 features).
+* Java 25 (Project configured for Java 25 features).
 * Maven (Wrapper included).
 
 ### Execution Steps
