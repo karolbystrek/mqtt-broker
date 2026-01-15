@@ -344,6 +344,27 @@ classDiagram
     Builder ..> PacketProcessingPipeline : builds
 ```
 
+```mermaid
+classDiagram
+    class Broker {
+        -BrokerContext context
+        -EventPublisher eventPublisher
+        -Pipeline pipeline
+        +start()
+    }
+    class BrokerBuilder {
+        -BrokerConfiguration config
+        -EventPublisher eventPublisher
+        -Pipeline pipeline
+        +config(config)
+        +pipeline(pipeline)
+        +build()
+    }
+    
+    Broker ..> BrokerBuilder : created by
+    BrokerBuilder ..> Broker : builds
+```
+
 **Trade-offs**:
 -   **Verbosity**: Requires creating a separate inner static class or external builder class, doubling the lines of code for that type.
 -   **Duplicate Fields**: The Builder usually mirrors the fields of the target class, leading to duplication.
