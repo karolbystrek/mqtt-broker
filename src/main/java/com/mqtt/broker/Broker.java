@@ -1,7 +1,7 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.connection.ClientConnection;
-import com.mqtt.broker.connection.ConnectionListener;
+import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.ProtocolDecoder;
 import com.mqtt.broker.event.ConnectionLostEvent;
 import com.mqtt.broker.event.EventPublisher;
@@ -33,7 +33,7 @@ public class Broker implements AutoCloseable {
     private final ServerSocketChannel serverChannel;
     private final ProtocolDecoder packetDecoder;
     private final EventPublisher eventPublisher;
-    private final ConnectionListener serverListener;
+    private final ServerListener serverListener;
     private final ExecutorService packetExecutor;
     private final Pipeline pipeline;
     private final Map<SocketChannel, ClientConnection> connections;

@@ -17,14 +17,14 @@ import static java.nio.channels.SelectionKey.OP_READ;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ServerListener implements ConnectionListener {
+public class ServerListener {
 
     private final Selector selector;
     private final BrokerConfiguration config;
     private final Map<SocketChannel, ClientConnection> connections;
 
     public ServerSocketChannel setup() throws IOException {
-        var serverChannel = ServerSocketChannel.open();
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
         serverChannel.bind(new InetSocketAddress(config.getHost(), config.getPort()));
         serverChannel.configureBlocking(false);
         serverChannel.register(selector, OP_ACCEPT);
@@ -32,11 +32,17 @@ public class ServerListener implements ConnectionListener {
     }
 
     public void accept(SelectionKey key) throws IOException {
-        var serverChannel = (ServerSocketChannel) key.channel();
-        var clientChannel = serverChannel.accept();
-        clientChannel.configureBlocking(false);
-        clientChannel.register(selector, OP_READ);
-        connections.put(clientChannel, new ClientConnection(clientChannel));
-        log.info("Accepted new connection from {}", clientChannel.getRemoteAddress());
+        ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
+        SocketChannel clientChannel = serverChannel.accept();
+
+        if (clientChannel != null) {
+            clientChannel.configureBlocking(false);
+            clientChannel.register(selector, OP_READ);
+
+            ClientConnection connection = new ClientConnection(clientChannel);
+            connections.put(clientChannel, connection);
+
+            log.info("Accepted new connection from {}", clientChannel.getRemoteAddress());
+        }
     }
 }

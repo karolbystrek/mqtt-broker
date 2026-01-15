@@ -2,7 +2,6 @@ package com.mqtt.broker;
 
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.connection.ClientConnection;
-import com.mqtt.broker.connection.ConnectionListener;
 import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.decoder.ProtocolDecoder;
@@ -13,7 +12,6 @@ import java.io.IOException;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,8 +24,6 @@ public class BrokerBuilder {
     private Pipeline pipeline;
     private ExecutorService packetExecutor;
     private ProtocolDecoder packetDecoder;
-    private Selector selector;
-    private Map<SocketChannel, ClientConnection> connections;
 
     public BrokerBuilder config(BrokerConfiguration config) {
         this.config = config;
@@ -65,14 +61,6 @@ public class BrokerBuilder {
         if (eventPublisher == null) throw new IllegalStateException("EventPublisher is required");
         if (pipeline == null) throw new IllegalStateException("PacketProcessingPipeline is required");
 
-        if (selector == null) {
-            selector = Selector.open();
-        }
-
-        if (connections == null) {
-            connections = new ConcurrentHashMap<>();
-        }
-
         if (packetExecutor == null) {
             packetExecutor = Executors.newVirtualThreadPerTaskExecutor();
         }
@@ -81,7 +69,10 @@ public class BrokerBuilder {
             packetDecoder = new MqttPacketDecoder();
         }
 
-        ConnectionListener serverListener = new ServerListener(selector, config, connections);
+        Selector selector = Selector.open();
+        var connections = new ConcurrentHashMap<SocketChannel, ClientConnection>();
+
+        var serverListener = new ServerListener(selector, config, connections);
         ServerSocketChannel serverChannel = serverListener.setup();
 
         return new Broker(
