@@ -69,17 +69,17 @@ The Strategy pattern allows the broker's authentication mechanism to be swapped 
 classDiagram
     class AuthorizationService {
         -AuthorizationStrategy strategy
-        +authenticate(username, password)
+        +authenticate(ConnectPacket)
     }
     class AuthorizationStrategy {
         <<interface>>
-        +authenticate(username, password)
+        +authenticate(ConnectPacket)
     }
     class FileBasedAuthorizationStrategy {
-        +authenticate(username, password)
+        +authenticate(ConnectPacket)
     }
     class PermissiveAuthorizationStrategy {
-        +authenticate(username, password)
+        +authenticate(ConnectPacket)
     }
     
     
@@ -274,7 +274,7 @@ sequenceDiagram
     Broker->>Decoder: decode(buffer)
     Decoder-->>Broker: ConnectPacket Object
     Broker->>ConnectHandler: handle(ConnectPacket)
-    ConnectHandler->>AuthService: authenticate(user, pass)
+    ConnectHandler->>AuthService: authenticate(ConnectPacket)
     
     alt Authentication Success
         AuthService-->>ConnectHandler: true

@@ -1,7 +1,9 @@
 package com.mqtt.broker.auth.strategy;
 
+import com.mqtt.broker.packet.ConnectPacket;
+
 public interface AuthorizationStrategy {
-    boolean authenticate(String username, String password);
+    boolean authenticate(ConnectPacket packet);
 
     boolean canSubscribe(String username, String topicFilter);
 

@@ -1,17 +1,22 @@
 package com.mqtt.broker;
 
 import com.mqtt.broker.auth.AuthorizationService;
+import com.mqtt.broker.auth.strategy.AuthorizationStrategy;
+import com.mqtt.broker.auth.strategy.FileBasedAuthorizationStrategy;
+import com.mqtt.broker.auth.strategy.PermissiveAuthorizationStrategy;
 import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.persistence.SessionPersistenceService;
 import com.mqtt.broker.repository.RetainedMessageRepository;
 import com.mqtt.broker.repository.SubscriptionRepository;
 import com.mqtt.broker.service.MessageDeliveryService;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Getter
 public class BrokerContext {
 
@@ -29,7 +34,17 @@ public class BrokerContext {
 
     public BrokerContext(BrokerConfiguration config) {
         this.config = config;
-        this.authorizationService = new AuthorizationService(config);
+
+        AuthorizationStrategy strategy;
+        if (config.getServer().isAllowAnonymous()) {
+            log.info("Anonymous access allowed.");
+            strategy = new PermissiveAuthorizationStrategy();
+        } else {
+            log.info("Anonymous access disabled.");
+            strategy = new FileBasedAuthorizationStrategy();
+        }
+        this.authorizationService = new AuthorizationService(strategy);
+
         this.messageDeliveryService = new MessageDeliveryService(this);
         this.sessionPersistenceService = new SessionPersistenceService();
         if (!config.getServer().isCleanSession()) {

@@ -2,6 +2,7 @@ package com.mqtt.broker.auth.strategy;
 
 import com.mqtt.broker.auth.AuthorizationEntry;
 import com.mqtt.broker.auth.UserRegistry;
+import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.repository.AuthorizationRepository;
 import com.mqtt.broker.trie.TopicPath;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,13 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
     }
 
     @Override
-    public boolean authenticate(String username, String password) {
+    public boolean authenticate(ConnectPacket packet) {
+        if (!packet.variableHeader().hasUsername() || !packet.variableHeader().hasPassword()) {
+            return false;
+        }
+        String username = packet.payload().username();
+        String password = packet.payload().password();
+
         if (username == null || password == null) {
             return false;
         }

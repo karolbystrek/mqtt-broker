@@ -115,9 +115,7 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             ));
         }
 
-        var username = packet.payload().username();
-        var password = packet.payload().password();
-        if (!context.getAuthorizationService().authenticate(username, password)) {
+        if (!context.getAuthorizationService().authenticate(packet)) {
             log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(
                     createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),

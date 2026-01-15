@@ -1,9 +1,7 @@
 package com.mqtt.broker.auth;
 
 import com.mqtt.broker.auth.strategy.AuthorizationStrategy;
-import com.mqtt.broker.auth.strategy.FileBasedAuthorizationStrategy;
-import com.mqtt.broker.auth.strategy.PermissiveAuthorizationStrategy;
-import com.mqtt.broker.config.BrokerConfiguration;
+import com.mqtt.broker.packet.ConnectPacket;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -11,22 +9,16 @@ public class AuthorizationService {
 
     private final AuthorizationStrategy strategy;
 
-    public AuthorizationService(BrokerConfiguration config) {
-        if (config.getServer().isAllowAnonymous()) {
-            log.info("Anonymous access allowed.");
-            this.strategy = new PermissiveAuthorizationStrategy();
-        } else {
-            log.info("Anonymous access disabled.");
-            this.strategy = new FileBasedAuthorizationStrategy();
-        }
+    public AuthorizationService(AuthorizationStrategy strategy) {
+        this.strategy = strategy;
     }
 
-    public boolean authenticate(String username, String password) {
-        return strategy.authenticate(username, password);
+    public boolean authenticate(ConnectPacket packet) {
+        return strategy.authenticate(packet);
     }
 
-    public boolean canSubscribe(String username, String topicFilter) {
-        return strategy.canSubscribe(username, topicFilter);
+    public boolean canSubscribe(String username, String topic) {
+        return strategy.canSubscribe(username, topic);
     }
 
     public boolean canPublish(String username, String topic) {

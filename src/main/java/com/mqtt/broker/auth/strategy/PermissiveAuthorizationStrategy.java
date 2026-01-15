@@ -1,8 +1,10 @@
 package com.mqtt.broker.auth.strategy;
 
+import com.mqtt.broker.packet.ConnectPacket;
+
 public class PermissiveAuthorizationStrategy implements AuthorizationStrategy {
     @Override
-    public boolean authenticate(String username, String password) {
+    public boolean authenticate(ConnectPacket packet) {
         return true;
     }
 
