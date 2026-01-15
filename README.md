@@ -62,7 +62,7 @@ The following design patterns were implemented **from scratch** to solve specifi
 **Justification**:
 The Strategy pattern allows the broker's authentication mechanism to be swapped at runtime based on configuration.
 -   **Problem**: We need strict authentication for production but open access for local testing. Hardcoding one logic path creates technical debt.
--   **Solution**: The `AuthorizationService` holds a reference to the `AuthorizationStrategy` interface. At startup, depending on the `server.allowAnonymous` flag in `application.yml`, the system injects either the `FileBased` (checks `users.json`) or `Permissive` (allows all) strategy.
+-   **Solution**: The `AuthorizationService` holds a reference to the `AuthorizationStrategy` interface. At startup, depending on the `allowAnonymous` flag in `application.yml`, the system injects either the `FileBased` (checks `users.json`) or `Permissive` (allows all) strategy.
 
 **Diagram**:
 ```mermaid
@@ -213,39 +213,43 @@ classDiagram
 
 ### D. Chain of Responsibility Pattern (Pipeline)
 **Location**:
--   **Chain Interface**: `src/main/java/com/mqtt/broker/interceptor/PacketInterceptor.java`
--   **Abstract Handler**: `src/main/java/com/mqtt/broker/interceptor/AbstractPacketInterceptor.java`
--   **Pipeline Manager**: `src/main/java/com/mqtt/broker/interceptor/MqttPacketProcessingPipeline.java`
--   **Concrete Handlers**: `RateLimitInterceptor`, `TrafficLoggingInterceptor`, `PacketAuthorizationInterceptor`, `PacketDispatchInterceptor`
+-   **Chain Interface**: `src/main/java/com/mqtt/broker/interceptor/Interceptor.java`
+-   **Base Handler**: `src/main/java/com/mqtt/broker/interceptor/ChainablePacketInterceptor.java`
+-   **Pipeline Manager**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
+-   **Concrete Handlers**: `ResponseSendingInterceptor`, `EventPublishingInterceptor`, `ClientActivityInterceptor`, `PacketAuthorizationInterceptor`, `PacketHandlingInterceptor`
 
 **Justification**:
-The broker requires multiple independent processing steps for every packet: Rate Limiting -> Logging -> Authorization -> Dispatching.
--   **Problem**: Hardcoding these calls in the `Broker` or `Dispatcher` creates strong coupling and violates SRP. Adding a new step (e.g., Metrics) would require modifying the core loop.
--   **Solution**: We implement a processing pipeline. Each "Interceptor" does its job and either passes the packet to the next link or aborts the chain (e.g., if Rate Limit exceeded or Auth failed). The `MqttPacketProcessingPipeline` configures the order of execution.
+The broker requires multiple independent processing steps for every packet: Response Sending -> Event Publishing -> Activity Tracking -> Authorization -> Handling.
+-   **Problem**: Hardcoding these calls in the `Broker` creates strong coupling. Some steps are "wrappers" (side-effects like sending response) while others are "filters" (auth, handling).
+-   **Solution**: We implement a processing pipeline.
+    -   **Wrappers** (`ResponseSendingInterceptor`, `EventPublishingInterceptor`) implement `Interceptor` directly and wrap the execution of the rest of the chain, acting on the return value (Result).
+    -   **Filters** (`PacketHandlingInterceptor`) extend `ChainablePacketInterceptor` and focus on processing logic, potentially short-circuiting the chain.
 
 **Diagram**:
 ```mermaid
 classDiagram
-    class PacketInterceptor {
+    class Interceptor {
         <<interface>>
         +intercept(channel, packet)
         +setNext(next)
     }
-    class AbstractPacketInterceptor {
-        #doIntercept(channel, packet)
+    class ChainablePacketInterceptor {
+        #process(channel, packet)
     }
-    class MqttPacketProcessingPipeline {
-        -PacketInterceptor head
+    class PacketProcessingPipeline {
+        -Interceptor head
         +process(channel, packet)
     }
     
-    PacketInterceptor <|.. AbstractPacketInterceptor
-    AbstractPacketInterceptor <|-- RateLimitInterceptor
-    AbstractPacketInterceptor <|-- TrafficLoggingInterceptor
-    AbstractPacketInterceptor <|-- PacketAuthorizationInterceptor
-    AbstractPacketInterceptor <|-- PacketDispatchInterceptor
+    Interceptor <|.. ChainablePacketInterceptor
+    Interceptor <|.. ResponseSendingInterceptor
+    Interceptor <|.. EventPublishingInterceptor
     
-    MqttPacketProcessingPipeline --> PacketInterceptor : delegates to head
+    ChainablePacketInterceptor <|-- ClientActivityInterceptor
+    ChainablePacketInterceptor <|-- PacketAuthorizationInterceptor
+    ChainablePacketInterceptor <|-- PacketHandlingInterceptor
+    
+    PacketProcessingPipeline --> Interceptor : delegates to head
 ```
 
 ## 4. Visual Diagrams (UML)
@@ -359,12 +363,12 @@ flowchart TD
 The broker behavior is controlled via configuration files and persistent storage located in the root directory.
 
 ### Configuration (`application.yml`)
-Located at `src/main/resources/application.yml`. Controls server settings.
-*   **server.allowAnonymous**:
+Located at the **project root** (`application.yml`). Controls server settings.
+*   **allowAnonymous**:
     *   `true`: Uses `PermissiveAuthorizationStrategy` (No credentials required).
     *   `false`: Uses `FileBasedAuthorizationStrategy` (Validates against `users.json`).
-*   **server.port**: The TCP port (default: 1883).
-*   **server.cleanSession**: Default behavior for new sessions.
+*   **port**: The TCP port (default: 1883).
+*   **cleanSession**: Default behavior for new sessions.
 
 ### User Repository (`users.json`)
 Used when `allowAnonymous: false`. Defines valid users and their topic permissions.
