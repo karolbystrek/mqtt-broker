@@ -1,0 +1,9 @@
+[ {
+  "clientId" : "klientid",
+  "username" : "user",
+  "subscriptions" : {
+    "readwrite/#" : "EXACTLY_ONCE"
+  },
+  "pendingMessages" : [ ],
+  "nextPacketId" : 1
+} ]

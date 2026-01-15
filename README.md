@@ -416,6 +416,7 @@ The broker behavior is controlled via configuration files and persistent storage
 
 Located at the **project root** (`application.yml`). Controls server settings.
 
+* **host**: The hostname or IP address to bind to (default: 'localhost').
 * **allowAnonymous**:
     * `true`: Uses `PermissiveAuthorizationStrategy` (No credentials required).
     * `false`: Uses `FileBasedAuthorizationStrategy` (Validates against `users.json`).
@@ -437,6 +438,25 @@ Used when `allowAnonymous: false`. Defines valid users and their topic permissio
         "access": "READ_WRITE"
       }
     ]
+  }
+]
+```
+
+### Session Repository (`sessions.json`)
+
+Used to persist client sessions across broker restarts.
+
+```json
+[
+  {
+    "clientId": "client123",
+    "username": "user",
+    "cleanSession": false,
+    "subscriptions": {
+      "readwrite/#": "EXACTLY_ONCE"
+    },
+    "pendingMessages": [],
+    "nextPacketId": 1
   }
 ]
 ```
