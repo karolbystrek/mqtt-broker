@@ -17,7 +17,7 @@ import static java.nio.channels.SelectionKey.OP_READ;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ServerListener {
+public class ServerListener implements ConnectionListener {
 
     private final Selector selector;
     private final BrokerConfiguration config;

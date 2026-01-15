@@ -1,9 +1,9 @@
 package com.mqtt.broker.config;
 
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
@@ -14,7 +14,6 @@ public class ConfigLoader {
 
     public static BrokerConfiguration load() {
         Yaml yaml = new Yaml(new Constructor(BrokerConfiguration.class, new org.yaml.snakeyaml.LoaderOptions()));
-        
         BrokerConfiguration config = loadConfiguration(yaml);
         configureLogging(config);
         return config;

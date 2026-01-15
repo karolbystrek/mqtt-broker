@@ -1,7 +1,7 @@
 server:
   host: localhost
   port: 1883
-  cleanSession: true
+  cleanSession: false
   allowAnonymous: false
 logging:
   level: INFO

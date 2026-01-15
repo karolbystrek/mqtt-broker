@@ -9,7 +9,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class ClientActivityInterceptor extends AbstractPacketInterceptor {
+public class ClientActivityInterceptor extends ChainablePacketInterceptor {
 
     private final BrokerContext context;
 

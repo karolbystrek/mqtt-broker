@@ -7,12 +7,12 @@ import java.nio.channels.SocketChannel;
 import java.util.Optional;
 
 @Slf4j
-public abstract class AbstractPacketInterceptor implements PacketInterceptor {
+public abstract class ChainablePacketInterceptor implements Interceptor {
 
-    protected PacketInterceptor next;
+    protected Interceptor next;
 
     @Override
-    public void setNext(PacketInterceptor next) {
+    public void setNext(Interceptor next) {
         this.next = next;
     }
 

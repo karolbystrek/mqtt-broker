@@ -3,7 +3,7 @@ package com.mqtt.broker.event;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BrokerEventPublisher {
+public class BrokerEventPublisher implements EventPublisher {
     private final List<EventListener> listeners = new ArrayList<>();
 
     public void publish(BrokerEvent event) {

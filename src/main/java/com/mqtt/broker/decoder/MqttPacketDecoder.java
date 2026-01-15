@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeFixedHeader;
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
 
-public class MqttPacketDecoder {
+public class MqttPacketDecoder implements ProtocolDecoder {
 
     private final ConnectPacketDecoder connect = new ConnectPacketDecoder();
     private final DisconnectPacketDecoder disconnect = new DisconnectPacketDecoder();

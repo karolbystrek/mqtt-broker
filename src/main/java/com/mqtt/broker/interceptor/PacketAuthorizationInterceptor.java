@@ -19,7 +19,7 @@ import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
 
 @Slf4j
 @RequiredArgsConstructor
-public class PacketAuthorizationInterceptor extends AbstractPacketInterceptor {
+public class PacketAuthorizationInterceptor extends ChainablePacketInterceptor {
 
     private final BrokerContext context;
 

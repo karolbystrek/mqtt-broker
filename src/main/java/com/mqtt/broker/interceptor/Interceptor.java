@@ -4,9 +4,9 @@ import com.mqtt.broker.packet.MqttPacket;
 
 import java.nio.channels.SocketChannel;
 
-public interface PacketInterceptor {
+public interface Interceptor {
 
-    void setNext(PacketInterceptor next);
+    void setNext(Interceptor next);
 
     ProcessingResult intercept(SocketChannel channel, MqttPacket packet);
 }

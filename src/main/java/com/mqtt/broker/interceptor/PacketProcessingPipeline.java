@@ -8,9 +8,9 @@ import java.nio.channels.SocketChannel;
 
 @Slf4j
 @RequiredArgsConstructor
-public class MqttPacketProcessingPipeline {
+public class PacketProcessingPipeline implements Pipeline {
 
-    private final PacketInterceptor head;
+    private final Interceptor head;
 
     public ProcessingResult process(SocketChannel channel, MqttPacket packet) {
         if (head == null) {
@@ -24,10 +24,10 @@ public class MqttPacketProcessingPipeline {
     }
 
     public static class Builder {
-        private PacketInterceptor head;
-        private PacketInterceptor tail;
+        private Interceptor head;
+        private Interceptor tail;
 
-        public Builder addInterceptor(PacketInterceptor interceptor) {
+        public Builder addInterceptor(Interceptor interceptor) {
             if (head == null) {
                 head = interceptor;
                 tail = interceptor;
@@ -38,8 +38,8 @@ public class MqttPacketProcessingPipeline {
             return this;
         }
 
-        public MqttPacketProcessingPipeline build() {
-            return new MqttPacketProcessingPipeline(head);
+        public PacketProcessingPipeline build() {
+            return new PacketProcessingPipeline(head);
         }
     }
 }

@@ -1,19 +1,12 @@
 package com.mqtt.broker;
 
-import com.mqtt.broker.config.BrokerConfiguration;
 import com.mqtt.broker.connection.ClientConnection;
-import com.mqtt.broker.connection.ServerListener;
-import com.mqtt.broker.decoder.MqttPacketDecoder;
-import com.mqtt.broker.event.BrokerEventPublisher;
+import com.mqtt.broker.connection.ConnectionListener;
+import com.mqtt.broker.decoder.ProtocolDecoder;
 import com.mqtt.broker.event.ConnectionLostEvent;
-import com.mqtt.broker.event.listener.ConnectionEventListener;
-import com.mqtt.broker.event.listener.DeliveryEventListener;
-import com.mqtt.broker.event.listener.SubscriptionEventListener;
-import com.mqtt.broker.handler.PacketDispatchInterceptor;
-import com.mqtt.broker.interceptor.ClientActivityInterceptor;
-import com.mqtt.broker.interceptor.MqttPacketProcessingPipeline;
-import com.mqtt.broker.interceptor.PacketAuthorizationInterceptor;
-import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.event.EventPublisher;
+import com.mqtt.broker.interceptor.Pipeline;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -22,48 +15,31 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Optional.ofNullable;
 
 @Slf4j
+@RequiredArgsConstructor
 public class Broker implements AutoCloseable {
 
     private static final int KEEP_ALIVE_CHECK_INTERVAL_MS = 1000;
 
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    private final Map<SocketChannel, ClientConnection> connections = new ConcurrentHashMap<>();
-
     private final BrokerContext context;
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
-    private final MqttPacketDecoder packetDecoder;
-    private final BrokerEventPublisher eventPublisher;
-    private final ServerListener serverListener;
+    private final ProtocolDecoder packetDecoder;
+    private final EventPublisher eventPublisher;
+    private final ConnectionListener serverListener;
     private final ExecutorService packetExecutor;
-    private final MqttPacketProcessingPipeline pipeline;
+    private final Pipeline pipeline;
+    private final Map<SocketChannel, ClientConnection> connections;
 
-    public Broker(BrokerConfiguration config, BrokerContext context) throws IOException {
-        this.context = context;
-        this.selector = Selector.open();
-        this.serverListener = new ServerListener(selector, config, connections);
-        this.serverChannel = serverListener.setup();
-        this.packetDecoder = new MqttPacketDecoder();
-        this.eventPublisher = BrokerEventPublisher.builder()
-                .addListener(new ConnectionEventListener(context))
-                .addListener(new SubscriptionEventListener(context))
-                .addListener(new DeliveryEventListener(context)).build();
-
-        this.packetExecutor = Executors.newVirtualThreadPerTaskExecutor();
-        this.pipeline = MqttPacketProcessingPipeline.builder()
-                .addInterceptor(new ClientActivityInterceptor(context))
-                .addInterceptor(new PacketAuthorizationInterceptor(context))
-                .addInterceptor(new PacketDispatchInterceptor(context))
-                .build();
+    public static BrokerBuilder builder() {
+        return new BrokerBuilder();
     }
 
     public void start() {
@@ -111,23 +87,14 @@ public class Broker implements AutoCloseable {
         var buffer = connection.getBuffer();
         buffer.flip(); // flip the buffer for reading
         while (buffer.hasRemaining()) {
-            var optionalPacket = packetDecoder.decode(buffer);
-            if (optionalPacket == null) {
+            var packet = packetDecoder.decode(buffer);
+            if (packet == null) {
                 buffer.reset(); // incomplete packet, wait for more data
                 break;
             }
-            packetExecutor.submit(() -> processPacket(clientChannel, optionalPacket));
+            packetExecutor.submit(() -> pipeline.process(clientChannel, packet));
         }
         buffer.compact(); // compact the buffer to preserve incomplete data
-    }
-
-    private void processPacket(SocketChannel clientChannel, MqttPacket packet) {
-        var handlerResult = pipeline.process(clientChannel, packet);
-
-        handlerResult.responsePacket().ifPresent(response ->
-                context.getMessageDeliveryService().send(clientChannel, response)
-        );
-        handlerResult.event().ifPresent(eventPublisher::publish);
     }
 
     private void checkKeepAliveTimeouts() {
