@@ -313,7 +313,40 @@ classDiagram
 - **Performance Overhead**: Passing a request down a long chain involves many method calls.
 - **Order Dependency**: The pipeline relies heavily on the correct order of interceptors (e.g., Auth must come before
   Handling).
-- **Debugging**: It can be difficult to pinpoint which interceptor stopped the chain or modified the request.
+-   **Debugging**: It can be difficult to pinpoint which interceptor stopped the chain or modified the request.
+
+### E. Builder Pattern
+**Location**:
+-   **Broker Construction**: `src/main/java/com/mqtt/broker/BrokerBuilder.java`
+-   **Event System**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
+-   **Pipeline**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
+
+**Justification**:
+Complex objects like the `Broker` or the processing `Pipeline` have many optional dependencies or configuration steps.
+-   **Problem**: Using a constructor with many parameters (Telescoping Constructor Anti-pattern) is unreadable and error-prone. Passing `null` for optional dependencies is confusing.
+-   **Solution**: We use the Builder pattern to construct these objects step-by-step. This provides a fluent API, allows for sensible defaults (e.g., default `MqttPacketDecoder`), and ensures the final object is fully initialized and immutable where possible.
+
+**Diagram**:
+```mermaid
+classDiagram
+    class PacketProcessingPipeline {
+        -Interceptor head
+        +process(channel, packet)
+    }
+    class Builder {
+        -Interceptor head
+        -Interceptor tail
+        +addInterceptor(interceptor)
+        +build()
+    }
+    
+    PacketProcessingPipeline ..> Builder : created by
+    Builder ..> PacketProcessingPipeline : builds
+```
+
+**Trade-offs**:
+-   **Verbosity**: Requires creating a separate inner static class or external builder class, doubling the lines of code for that type.
+-   **Duplicate Fields**: The Builder usually mirrors the fields of the target class, leading to duplication.
 
 ## 4. Visual Diagrams (UML)
 
