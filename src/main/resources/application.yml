@@ -2,8 +2,6 @@ server:
   host: localhost
   port: 1883
   cleanSession: true
-  allowAnonymous: true
-mqtt:
-  keepAliveCheckIntervalMs: 1000
+  allowAnonymous: false
 logging:
   level: INFO

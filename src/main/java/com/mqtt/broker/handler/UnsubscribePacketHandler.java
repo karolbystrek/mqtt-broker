@@ -1,6 +1,7 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
+import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.UnsubAckPacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
@@ -11,8 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
+import static com.mqtt.broker.interceptor.ProcessingResult.empty;
+import static com.mqtt.broker.interceptor.ProcessingResult.withResponse;
 import static com.mqtt.broker.packet.MqttPacketType.UNSUBACK;
 
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, UnsubscribePacket packet) throws IOException {
+    public ProcessingResult handle(SocketChannel clientChannel, UnsubscribePacket packet) throws IOException {
         var clientSession = context.getSession(clientChannel);
         if (clientSession == null) {
             log.error("No session found for channel: {}", clientChannel.getRemoteAddress());

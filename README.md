@@ -211,6 +211,43 @@ classDiagram
 
 ```
 
+### D. Chain of Responsibility Pattern (Pipeline)
+**Location**:
+-   **Chain Interface**: `src/main/java/com/mqtt/broker/interceptor/PacketInterceptor.java`
+-   **Abstract Handler**: `src/main/java/com/mqtt/broker/interceptor/AbstractPacketInterceptor.java`
+-   **Pipeline Manager**: `src/main/java/com/mqtt/broker/interceptor/MqttPacketProcessingPipeline.java`
+-   **Concrete Handlers**: `RateLimitInterceptor`, `TrafficLoggingInterceptor`, `PacketAuthorizationInterceptor`, `PacketDispatchInterceptor`
+
+**Justification**:
+The broker requires multiple independent processing steps for every packet: Rate Limiting -> Logging -> Authorization -> Dispatching.
+-   **Problem**: Hardcoding these calls in the `Broker` or `Dispatcher` creates strong coupling and violates SRP. Adding a new step (e.g., Metrics) would require modifying the core loop.
+-   **Solution**: We implement a processing pipeline. Each "Interceptor" does its job and either passes the packet to the next link or aborts the chain (e.g., if Rate Limit exceeded or Auth failed). The `MqttPacketProcessingPipeline` configures the order of execution.
+
+**Diagram**:
+```mermaid
+classDiagram
+    class PacketInterceptor {
+        <<interface>>
+        +intercept(channel, packet)
+        +setNext(next)
+    }
+    class AbstractPacketInterceptor {
+        #doIntercept(channel, packet)
+    }
+    class MqttPacketProcessingPipeline {
+        -PacketInterceptor head
+        +process(channel, packet)
+    }
+    
+    PacketInterceptor <|.. AbstractPacketInterceptor
+    AbstractPacketInterceptor <|-- RateLimitInterceptor
+    AbstractPacketInterceptor <|-- TrafficLoggingInterceptor
+    AbstractPacketInterceptor <|-- PacketAuthorizationInterceptor
+    AbstractPacketInterceptor <|-- PacketDispatchInterceptor
+    
+    MqttPacketProcessingPipeline --> PacketInterceptor : delegates to head
+```
+
 ## 4. Visual Diagrams (UML)
 
 ### A. UML Class Diagram (Core System)

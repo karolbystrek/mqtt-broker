@@ -9,7 +9,10 @@ import com.mqtt.broker.event.ConnectionLostEvent;
 import com.mqtt.broker.event.listener.ConnectionEventListener;
 import com.mqtt.broker.event.listener.DeliveryEventListener;
 import com.mqtt.broker.event.listener.SubscriptionEventListener;
-import com.mqtt.broker.handler.MqttPacketHandler;
+import com.mqtt.broker.handler.PacketDispatchInterceptor;
+import com.mqtt.broker.interceptor.ClientActivityInterceptor;
+import com.mqtt.broker.interceptor.MqttPacketProcessingPipeline;
+import com.mqtt.broker.interceptor.PacketAuthorizationInterceptor;
 import com.mqtt.broker.packet.MqttPacket;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,42 +31,45 @@ import static java.util.Optional.ofNullable;
 
 @Slf4j
 public class Broker implements AutoCloseable {
+
+    private static final int KEEP_ALIVE_CHECK_INTERVAL_MS = 1000;
+
     private final AtomicBoolean running = new AtomicBoolean(true);
 
     private final Map<SocketChannel, ClientConnection> connections = new ConcurrentHashMap<>();
 
-    private final BrokerConfiguration config;
     private final BrokerContext context;
     private final Selector selector;
     private final ServerSocketChannel serverChannel;
     private final MqttPacketDecoder packetDecoder;
-    private final MqttPacketHandler packetHandler;
     private final BrokerEventPublisher eventPublisher;
     private final ServerListener serverListener;
     private final ExecutorService packetExecutor;
+    private final MqttPacketProcessingPipeline pipeline;
 
     public Broker(BrokerConfiguration config, BrokerContext context) throws IOException {
-        this.config = config;
         this.context = context;
         this.selector = Selector.open();
         this.serverListener = new ServerListener(selector, config, connections);
         this.serverChannel = serverListener.setup();
         this.packetDecoder = new MqttPacketDecoder();
-        this.packetHandler = new MqttPacketHandler(context);
-        this.eventPublisher = new BrokerEventPublisher();
-
-        eventPublisher.addListener(new ConnectionEventListener(context));
-        eventPublisher.addListener(new SubscriptionEventListener(context));
-        eventPublisher.addListener(new DeliveryEventListener(context));
+        this.eventPublisher = BrokerEventPublisher.builder()
+                .addListener(new ConnectionEventListener(context))
+                .addListener(new SubscriptionEventListener(context))
+                .addListener(new DeliveryEventListener(context)).build();
 
         this.packetExecutor = Executors.newVirtualThreadPerTaskExecutor();
+        this.pipeline = MqttPacketProcessingPipeline.builder()
+                .addInterceptor(new ClientActivityInterceptor(context))
+                .addInterceptor(new PacketAuthorizationInterceptor(context))
+                .addInterceptor(new PacketDispatchInterceptor(context))
+                .build();
     }
 
     public void start() {
-        log.info("Broker started on {}:{}", config.getServer().getHost(), config.getServer().getPort());
         try {
             while (running.get()) {
-                selector.select(config.getMqtt().getKeepAliveCheckIntervalMs());
+                selector.select(KEEP_ALIVE_CHECK_INTERVAL_MS);
                 if (!selector.isOpen()) {
                     break;
                 }
@@ -116,22 +122,12 @@ public class Broker implements AutoCloseable {
     }
 
     private void processPacket(SocketChannel clientChannel, MqttPacket packet) {
-        try {
-            updateClientActivity(clientChannel);
-            var handlerResult = packetHandler.handle(clientChannel, packet);
-            handlerResult.responsePacket()
-                    .ifPresent(responsePacket -> context.getMessageDeliveryService().send(clientChannel, responsePacket));
-            handlerResult.event().ifPresent(eventPublisher::publish);
-        } catch (Exception e) {
-            log.error("Error processing packet from {}: {}", clientChannel, e.getMessage());
-        }
-    }
+        var handlerResult = pipeline.process(clientChannel, packet);
 
-    private void updateClientActivity(SocketChannel clientChannel) {
-        Session session = context.getSession(clientChannel);
-        if (session != null) {
-            session.updateLastActivity();
-        }
+        handlerResult.responsePacket().ifPresent(response ->
+                context.getMessageDeliveryService().send(clientChannel, response)
+        );
+        handlerResult.event().ifPresent(eventPublisher::publish);
     }
 
     private void checkKeepAliveTimeouts() {

@@ -3,6 +3,7 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.Session;
 import com.mqtt.broker.event.ClientSubscribedEvent;
+import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
@@ -15,9 +16,9 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.mqtt.broker.handler.HandlerResult.empty;
-import static com.mqtt.broker.handler.HandlerResult.withResponse;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
+import static com.mqtt.broker.interceptor.ProcessingResult.empty;
+import static com.mqtt.broker.interceptor.ProcessingResult.withResponse;
+import static com.mqtt.broker.interceptor.ProcessingResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.SUBACK;
 
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, SubscribePacket packet) throws IOException {
+    public ProcessingResult handle(SocketChannel clientChannel, SubscribePacket packet) throws IOException {
         Session session = context.getSession(clientChannel);
         if (session == null) {
             log.error("No session found for channel: {}", clientChannel.getRemoteAddress());

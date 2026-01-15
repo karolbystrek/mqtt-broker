@@ -1,6 +1,8 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
+import com.mqtt.broker.interceptor.AbstractPacketInterceptor;
+import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
@@ -13,12 +15,12 @@ import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.SubscribePacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
 
-import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.util.Optional;
 
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
 
-public class MqttPacketHandler {
+public class PacketDispatchInterceptor extends AbstractPacketInterceptor {
 
     private final ConnectPacketHandler connect;
     private final DisconnectPacketHandler disconnect;
@@ -31,7 +33,7 @@ public class MqttPacketHandler {
     private final SubscribePacketHandler subscribe;
     private final UnsubscribePacketHandler unsubscribe;
 
-    public MqttPacketHandler(BrokerContext brokerContext) {
+    public PacketDispatchInterceptor(BrokerContext brokerContext) {
         this.connect = new ConnectPacketHandler(brokerContext);
         this.disconnect = new DisconnectPacketHandler(brokerContext);
         this.pingReq = new PingReqPacketHandler();
@@ -44,19 +46,24 @@ public class MqttPacketHandler {
         this.unsubscribe = new UnsubscribePacketHandler(brokerContext);
     }
 
-    public HandlerResult handle(SocketChannel channel, MqttPacket packet) throws IOException {
-        return switch (packet) {
-            case ConnectPacket p -> connect.handle(channel, p);
-            case DisconnectPacket p -> disconnect.handle(channel, p);
-            case PingReqPacket p -> pingReq.handle(channel, p);
-            case PubAckPacket p -> pubAck.handle(channel, p);
-            case PubCompPacket p -> pubComp.handle(channel, p);
-            case PubRecPacket p -> pubRec.handle(channel, p);
-            case PubRelPacket p -> pubRel.handle(channel, p);
-            case PublishPacket p -> publish.handle(channel, p);
-            case SubscribePacket p -> subscribe.handle(channel, p);
-            case UnsubscribePacket p -> unsubscribe.handle(channel, p);
-            default -> throw unsupportedPacketType(packet.fixedHeader().packetType());
-        };
+    @Override
+    protected Optional<ProcessingResult> process(SocketChannel channel, MqttPacket packet) {
+        try {
+            return Optional.of(switch (packet) {
+                case ConnectPacket p -> connect.handle(channel, p);
+                case DisconnectPacket p -> disconnect.handle(channel, p);
+                case PingReqPacket p -> pingReq.handle(channel, p);
+                case PubAckPacket p -> pubAck.handle(channel, p);
+                case PubCompPacket p -> pubComp.handle(channel, p);
+                case PubRecPacket p -> pubRec.handle(channel, p);
+                case PubRelPacket p -> pubRel.handle(channel, p);
+                case PublishPacket p -> publish.handle(channel, p);
+                case SubscribePacket p -> subscribe.handle(channel, p);
+                case UnsubscribePacket p -> unsubscribe.handle(channel, p);
+                default -> throw unsupportedPacketType(packet.fixedHeader().packetType());
+            });
+        } catch (Exception e) {
+            throw new RuntimeException("Error dispatching packet: " + e.getMessage(), e);
+        }
     }
 }

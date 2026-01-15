@@ -5,6 +5,7 @@ import com.mqtt.broker.Session;
 import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
+import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
@@ -18,8 +19,8 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Optional;
 
-import static com.mqtt.broker.handler.HandlerResult.withEvent;
-import static com.mqtt.broker.handler.HandlerResult.withResponseAndEvent;
+import static com.mqtt.broker.interceptor.ProcessingResult.withEvent;
+import static com.mqtt.broker.interceptor.ProcessingResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_ACCEPTED;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
 import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED;
@@ -28,7 +29,7 @@ import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
 @RequiredArgsConstructor
 @Slf4j
-public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
+class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
     private static final int PROTOCOL_VERSION = 4; // 3.1.1 protocol version
     private static final String PROTOCOL_NAME = "MQTT";
@@ -36,7 +37,7 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
     private final BrokerContext context;
 
     @Override
-    public HandlerResult handle(SocketChannel clientChannel, ConnectPacket packet) throws IOException {
+    public ProcessingResult handle(SocketChannel clientChannel, ConnectPacket packet) throws IOException {
         if (context.getSession(clientChannel) != null) {
             log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
             return withEvent(new CloseConnectionEvent(clientChannel));
@@ -90,7 +91,7 @@ public class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         return withResponseAndEvent(connAckPacket, new ClientConnectedEvent(clientChannel, session));
     }
 
-    private Optional<HandlerResult> validateConnection(ConnectPacket packet, SocketChannel clientChannel) throws IOException {
+    private Optional<ProcessingResult> validateConnection(ConnectPacket packet, SocketChannel clientChannel) throws IOException {
         var variableHeader = packet.variableHeader();
 
         if (!isProtocolValid(variableHeader)) {
