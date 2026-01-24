@@ -1,12 +1,11 @@
-package com.mqtt.broker.interceptor;
+package com.mqtt.broker.pipeline;
 
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.pipeline.interceptor.Interceptor;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;
 
-@Slf4j
 @RequiredArgsConstructor
 public class PacketProcessingPipeline implements Pipeline {
 

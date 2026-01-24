@@ -5,12 +5,12 @@ import com.mqtt.broker.event.BrokerEventPublisher;
 import com.mqtt.broker.event.listener.ConnectionEventListener;
 import com.mqtt.broker.event.listener.DeliveryEventListener;
 import com.mqtt.broker.event.listener.SubscriptionEventListener;
-import com.mqtt.broker.interceptor.ClientActivityInterceptor;
-import com.mqtt.broker.interceptor.EventPublishingInterceptor;
-import com.mqtt.broker.interceptor.PacketAuthorizationInterceptor;
-import com.mqtt.broker.interceptor.PacketHandlingInterceptor;
-import com.mqtt.broker.interceptor.PacketProcessingPipeline;
-import com.mqtt.broker.interceptor.ResponseSendingInterceptor;
+import com.mqtt.broker.pipeline.PacketProcessingPipeline;
+import com.mqtt.broker.pipeline.interceptor.ClientActivityInterceptor;
+import com.mqtt.broker.pipeline.interceptor.EventPublishingInterceptor;
+import com.mqtt.broker.pipeline.interceptor.PacketAuthorizationInterceptor;
+import com.mqtt.broker.pipeline.interceptor.PacketHandlingInterceptor;
+import com.mqtt.broker.pipeline.interceptor.ResponseSendingInterceptor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;

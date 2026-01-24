@@ -5,7 +5,7 @@ import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.ProtocolDecoder;
 import com.mqtt.broker.event.ConnectionLostEvent;
 import com.mqtt.broker.event.EventPublisher;
-import com.mqtt.broker.interceptor.Pipeline;
+import com.mqtt.broker.pipeline.Pipeline;
 import com.mqtt.broker.session.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

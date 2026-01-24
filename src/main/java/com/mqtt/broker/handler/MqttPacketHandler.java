@@ -1,7 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.DisconnectPacket;
 import com.mqtt.broker.packet.MqttPacket;
@@ -13,6 +12,7 @@ import com.mqtt.broker.packet.PubRelPacket;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.SubscribePacket;
 import com.mqtt.broker.packet.UnsubscribePacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 
 import java.nio.channels.SocketChannel;
 

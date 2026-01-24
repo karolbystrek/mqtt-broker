@@ -2,15 +2,15 @@ package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.CloseConnectionEvent;
-import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.DisconnectPacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.interceptor.ProcessingResult.withEvent;
+import static com.mqtt.broker.pipeline.ProcessingResult.withEvent;
 
 @Slf4j
 @RequiredArgsConstructor

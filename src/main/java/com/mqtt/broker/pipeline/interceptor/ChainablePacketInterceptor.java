@@ -1,6 +1,7 @@
-package com.mqtt.broker.interceptor;
+package com.mqtt.broker.pipeline.interceptor;
 
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;

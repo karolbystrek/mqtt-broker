@@ -1,12 +1,12 @@
 package com.mqtt.broker.handler;
 
-import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.PubAckPacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import static com.mqtt.broker.interceptor.ProcessingResult.empty;
+import static com.mqtt.broker.pipeline.ProcessingResult.empty;
 
 class PubAckPacketHandler implements PacketHandler<PubAckPacket> {
 

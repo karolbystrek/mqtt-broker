@@ -3,12 +3,12 @@ package com.mqtt.broker.handler;
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
-import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import com.mqtt.broker.session.Session;
 import com.mqtt.broker.session.Session.WillMessage;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +18,9 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Optional;
 
-import static com.mqtt.broker.interceptor.ProcessingResult.withEvent;
-import static com.mqtt.broker.interceptor.ProcessingResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
+import static com.mqtt.broker.pipeline.ProcessingResult.withEvent;
+import static com.mqtt.broker.pipeline.ProcessingResult.withResponseAndEvent;
 
 @RequiredArgsConstructor
 @Slf4j

@@ -6,7 +6,7 @@ import com.mqtt.broker.connection.ServerListener;
 import com.mqtt.broker.decoder.MqttPacketDecoder;
 import com.mqtt.broker.decoder.ProtocolDecoder;
 import com.mqtt.broker.event.EventPublisher;
-import com.mqtt.broker.interceptor.Pipeline;
+import com.mqtt.broker.pipeline.Pipeline;
 
 import java.io.IOException;
 import java.nio.channels.Selector;

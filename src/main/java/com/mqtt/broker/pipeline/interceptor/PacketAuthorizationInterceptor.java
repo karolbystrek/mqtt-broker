@@ -1,4 +1,4 @@
-package com.mqtt.broker.interceptor;
+package com.mqtt.broker.pipeline.interceptor;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.packet.MqttFixedHeader;
@@ -6,16 +6,17 @@ import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PubAckPacket;
 import com.mqtt.broker.packet.PubRecPacket;
 import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.channels.SocketChannel;
 import java.util.Optional;
 
-import static com.mqtt.broker.interceptor.ProcessingResult.empty;
-import static com.mqtt.broker.interceptor.ProcessingResult.withResponse;
 import static com.mqtt.broker.packet.MqttPacketType.PUBACK;
 import static com.mqtt.broker.packet.MqttPacketType.PUBREC;
+import static com.mqtt.broker.pipeline.ProcessingResult.empty;
+import static com.mqtt.broker.pipeline.ProcessingResult.withResponse;
 
 @Slf4j
 @RequiredArgsConstructor

@@ -1,4 +1,4 @@
-package com.mqtt.broker.interceptor;
+package com.mqtt.broker.pipeline;
 
 import com.mqtt.broker.event.BrokerEvent;
 import com.mqtt.broker.packet.MqttPacket;

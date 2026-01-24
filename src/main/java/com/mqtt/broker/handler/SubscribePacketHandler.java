@@ -2,10 +2,10 @@ package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.event.ClientSubscribedEvent;
-import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.SubAckPacket;
 import com.mqtt.broker.packet.SubscribePacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import com.mqtt.broker.trie.TopicPath;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,10 +15,10 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.mqtt.broker.interceptor.ProcessingResult.empty;
-import static com.mqtt.broker.interceptor.ProcessingResult.withResponse;
-import static com.mqtt.broker.interceptor.ProcessingResult.withResponseAndEvent;
 import static com.mqtt.broker.packet.MqttPacketType.SUBACK;
+import static com.mqtt.broker.pipeline.ProcessingResult.empty;
+import static com.mqtt.broker.pipeline.ProcessingResult.withResponse;
+import static com.mqtt.broker.pipeline.ProcessingResult.withResponseAndEvent;
 
 @RequiredArgsConstructor
 @Slf4j

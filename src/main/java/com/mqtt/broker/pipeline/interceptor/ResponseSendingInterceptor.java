@@ -1,15 +1,16 @@
-package com.mqtt.broker.interceptor;
+package com.mqtt.broker.pipeline.interceptor;
 
-import com.mqtt.broker.event.EventPublisher;
+import com.mqtt.broker.BrokerContext;
 import com.mqtt.broker.packet.MqttPacket;
+import com.mqtt.broker.pipeline.ProcessingResult;
 import lombok.RequiredArgsConstructor;
 
 import java.nio.channels.SocketChannel;
 
 @RequiredArgsConstructor
-public class EventPublishingInterceptor implements Interceptor {
+public class ResponseSendingInterceptor implements Interceptor {
 
-    private final EventPublisher eventPublisher;
+    private final BrokerContext context;
     private Interceptor next;
 
     @Override
@@ -23,7 +24,9 @@ public class EventPublishingInterceptor implements Interceptor {
                 ? next.intercept(channel, packet)
                 : ProcessingResult.empty();
 
-        result.event().ifPresent(eventPublisher::publish);
+        result.responsePacket().ifPresent(response ->
+                context.getMessageDeliveryService().send(channel, response)
+        );
 
         return result;
     }
