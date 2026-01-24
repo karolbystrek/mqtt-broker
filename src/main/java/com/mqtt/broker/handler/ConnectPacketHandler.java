@@ -6,7 +6,6 @@ import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.ConnAckPacket;
 import com.mqtt.broker.packet.ConnAckPacket.ConnAckVariableHeader;
-import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
@@ -21,10 +20,6 @@ import java.util.Optional;
 
 import static com.mqtt.broker.interceptor.ProcessingResult.withEvent;
 import static com.mqtt.broker.interceptor.ProcessingResult.withResponseAndEvent;
-import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_ACCEPTED;
-import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD;
-import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED;
-import static com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode.CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION;
 import static com.mqtt.broker.packet.MqttPacketType.CONNACK;
 
 @RequiredArgsConstructor
@@ -33,6 +28,16 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
     private static final int PROTOCOL_VERSION = 4; // 3.1.1 protocol version
     private static final String PROTOCOL_NAME = "MQTT";
+
+    private static final String CLIENT_ID_FORMAT = "[0-9a-zA-Z]+";
+
+    private static final int CONNECTION_ACCEPTED = 0x00;
+    private static final int CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION = 0x01;
+    private static final int CONNECTION_REFUSED_IDENTIFIER_REJECTED = 0x02;
+    private static final int CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD = 0x04;
+
+    private static final byte SESSION_NOT_PRESENT = 0x00;
+    private static final byte SESSION_PRESENT = 0x01;
 
     private final BrokerContext context;
 
@@ -60,19 +65,8 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         }
 
         var session = resolveSession(clientId, username, variableHeader.cleanSession(), variableHeader.keepAlive());
-        byte sessionPresentFlag;
 
-        // If CleanSession is set to 1, the Client and Server MUST discard any previous Session and start a new one.
-        if (variableHeader.cleanSession()) {
-            sessionPresentFlag = 0;
-        } else {
-            // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from the current Session (as identified by the Client identifier).
-            if (context.getSessionManager().getPersistentSession(clientId) != null) {
-                sessionPresentFlag = 1;
-            } else {
-                sessionPresentFlag = 0;
-            }
-        }
+        byte sessionPresentFlag = isSessionPresentFlag(packet);
 
         if (variableHeader.willFlag()) {
             session.setWillMessage(new WillMessage(
@@ -97,7 +91,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         if (!isProtocolValid(variableHeader)) {
             log.warn("Connection refused for {}: Unsupported protocol", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(
-                    createConnAckPacket(0, CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION),
+                    createConnAckPacket(SESSION_NOT_PRESENT, CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION),
                     new CloseConnectionEvent(clientChannel)
             ));
         }
@@ -111,7 +105,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         if (!isClientIdValid(clientId)) {
             log.warn("Connection refused for {}: Identifier rejected", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(
-                    createConnAckPacket(0, CONNECTION_REFUSED_IDENTIFIER_REJECTED),
+                    createConnAckPacket(SESSION_NOT_PRESENT, CONNECTION_REFUSED_IDENTIFIER_REJECTED),
                     new CloseConnectionEvent(clientChannel)
             ));
         }
@@ -119,7 +113,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         if (!context.getAuthorizationService().authenticate(packet)) {
             log.warn("Connection refused for {}: Bad user name or password", clientChannel.getRemoteAddress());
             return Optional.of(withResponseAndEvent(
-                    createConnAckPacket(0, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
+                    createConnAckPacket(SESSION_NOT_PRESENT, CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD),
                     new CloseConnectionEvent(clientChannel)
             ));
         }
@@ -160,12 +154,19 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
     }
 
     private boolean isClientIdValid(String clientId) {
-        return clientId != null && !clientId.isEmpty() && clientId.length() <= 23 && clientId.matches("[0-9a-zA-Z]+");
+        return clientId != null && !clientId.isEmpty() && clientId.length() <= 23 && clientId.matches(CLIENT_ID_FORMAT);
     }
 
-    private ConnAckPacket createConnAckPacket(int sessionPresent, MqttConnectReturnCode returnCode) {
-        var connAckHeader = new ConnAckVariableHeader((byte) sessionPresent, returnCode.getCode());
+    private byte isSessionPresentFlag(ConnectPacket packet) {
+        if (!packet.variableHeader().cleanSession() &&
+                context.getSessionManager().getPersistentSession(packet.payload().clientId()) != null) {
+            return SESSION_PRESENT;
+        }
+        return SESSION_NOT_PRESENT;
+    }
+
+    private ConnAckPacket createConnAckPacket(byte connectAcknowledgeFlags, int returnCode) {
+        var connAckHeader = new ConnAckVariableHeader(connectAcknowledgeFlags, returnCode);
         return new ConnAckPacket(new MqttFixedHeader(CONNACK, (byte) 0, 2), connAckHeader);
     }
-
 }

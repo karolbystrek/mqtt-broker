@@ -8,6 +8,9 @@ import static com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 
 class PublishPacketDecoder implements PacketDecoder<PublishPacket> {
 
+    private static final int QOS_SHIFT = 1;
+    private static final int QOS_MASK = 0x03;
+
     @Override
     public PublishPacket decode(MqttFrame frame) {
         var fixedHeader = frame.fixedHeader();
@@ -16,7 +19,7 @@ class PublishPacketDecoder implements PacketDecoder<PublishPacket> {
         String topicName = decodeString(body);
         int packetIdentifier = 0;
 
-        if (((fixedHeader.flags() >> 1) & 0x03) > 0) {
+        if (((fixedHeader.flags() >> QOS_SHIFT) & QOS_MASK) > 0) {
             packetIdentifier = decodeTwoByteInt(body); // packet identifier is present if QoS > 0
         }
 

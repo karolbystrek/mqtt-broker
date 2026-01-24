@@ -28,6 +28,9 @@ public enum MqttPacketType {
 
     private final int value;
 
+    private static final int PACKET_TYPE_MASK = 0x0F;
+    private static final int PACKET_TYPE_SHIFT = 4;
+
     private static final Map<Integer, MqttPacketType> valueToTypeMap = Arrays
             .stream(values())
             .collect(toMap(MqttPacketType::getValue, identity()));
@@ -37,7 +40,7 @@ public enum MqttPacketType {
     }
 
     public static MqttPacketType fromHeaderByte(byte headerByte) {
-        int value = (headerByte >> 4) & 0x0F;
+        int value = (headerByte >> PACKET_TYPE_SHIFT) & PACKET_TYPE_MASK;
         return fromInt(value);
     }
 

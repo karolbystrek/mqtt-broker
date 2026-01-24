@@ -29,10 +29,10 @@ public record ConnectPacket(
 
     public record ConnectPayload(
             String clientId,
-            String willTopic,    // Optional, non-null only if willFlag is true
-            String willMessage,  // Optional, non-null only if willFlag is true
-            String username,     // Optional, non-null only if hasUsername is true
-            String password      // Optional, non-null only if hasPassword is true
+            String willTopic,    // Optional
+            String willMessage,  // Optional
+            String username,     // Optional
+            String password      // Optional
     ) {
     }
 }

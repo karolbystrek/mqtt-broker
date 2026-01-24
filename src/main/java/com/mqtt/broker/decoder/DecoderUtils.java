@@ -9,6 +9,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 class DecoderUtils {
 
+    private static final int FLAGS_MASK = 0x0F;
+    private static final int LENGTH_VALUE_MASK = 0x7F;
+    private static final int LENGTH_CONTINUATION_MASK = 0x80;
+    private static final int LENGTH_MULTIPLIER_BASE = 128;
+    private static final int MAX_LENGTH_BYTES = 4;
+    private static final int UNSIGNED_SHORT_MASK = 0xFFFF;
+
     private DecoderUtils() {
         throw new IllegalAccessError("Utility class");
     }
@@ -19,7 +26,7 @@ class DecoderUtils {
         }
         byte headerByte1 = buffer.get();
         var packetType = MqttPacketType.fromHeaderByte(headerByte1);
-        byte flags = (byte) (headerByte1 & 0x0F);
+        byte flags = (byte) (headerByte1 & FLAGS_MASK);
 
         int remainingLength = 0;
         int multiplier = 1;
@@ -31,12 +38,12 @@ class DecoderUtils {
             }
             digit = buffer.get();
             bytesConsumed++;
-            remainingLength += (digit & 0x7F) * multiplier;
-            multiplier *= 128;
-            if (bytesConsumed > 4) {
+            remainingLength += (digit & LENGTH_VALUE_MASK) * multiplier;
+            multiplier *= LENGTH_MULTIPLIER_BASE;
+            if (bytesConsumed > MAX_LENGTH_BYTES) {
                 throw new IllegalArgumentException("Malformed remaining length");
             }
-        } while ((digit & 0x80) != 0);
+        } while ((digit & LENGTH_CONTINUATION_MASK) != 0);
 
         return new MqttFixedHeader(packetType, flags, remainingLength);
     }
@@ -49,6 +56,6 @@ class DecoderUtils {
     }
 
     public static int decodeTwoByteInt(ByteBuffer buffer) {
-        return buffer.getShort() & 0xFFFF;
+        return buffer.getShort() & UNSIGNED_SHORT_MASK;
     }
 }

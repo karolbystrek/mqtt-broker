@@ -17,6 +17,11 @@ public record PublishPacket(
         byte[] payload
 ) implements MqttPacket {
 
+    private static final int DUP_MASK = 0b0000_1000;
+    private static final int QOS_MASK = 0b0000_0110;
+    private static final int QOS_SHIFT = 1;
+    private static final int RETAIN_MASK = 0b0000_0001;
+
     public PublishPacket {
         if (fixedHeader.packetType() != PUBLISH) {
             throw invalidPacketType(PublishPacket.class);
@@ -28,7 +33,7 @@ public record PublishPacket(
             throw invalidPacketIdentifier();
         }
 
-        int qosValue = (fixedHeader.flags() & 0b0000_0110) >> 1;
+        int qosValue = (fixedHeader.flags() & QOS_MASK) >> QOS_SHIFT;
         MqttQoS qos = MqttQoS.fromInt(qosValue);
         if (qos.requiresPacketId() && variableHeader.packetIdentifier <= 0) {
             throw new IllegalArgumentException("Packet Identifier must be greater than 0 for QoS levels 1 and 2");
@@ -43,16 +48,16 @@ public record PublishPacket(
     }
 
     public boolean isDup() {
-        return (fixedHeader.flags() & 0b0000_1000) != 0;
+        return (fixedHeader.flags() & DUP_MASK) != 0;
     }
 
     public MqttQoS getQosLevel() {
-        int qosValue = (fixedHeader.flags() & 0b0000_0110) >> 1;
+        int qosValue = (fixedHeader.flags() & QOS_MASK) >> QOS_SHIFT;
         return MqttQoS.fromInt(qosValue);
     }
 
     public boolean isRetain() {
-        return (fixedHeader.flags() & 0b0000_0001) != 0;
+        return (fixedHeader.flags() & RETAIN_MASK) != 0;
     }
 
     public Optional<Integer> getPacketIdentifier() {

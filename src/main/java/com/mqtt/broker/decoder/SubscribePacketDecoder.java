@@ -11,6 +11,8 @@ import static com.mqtt.broker.packet.SubscribePacket.Subscription;
 
 class SubscribePacketDecoder implements PacketDecoder<SubscribePacket> {
 
+    private static final int QOS_MASK = 0x03;
+
     @Override
     public SubscribePacket decode(MqttFrame frame) {
         var fixedHeader = frame.fixedHeader();
@@ -21,7 +23,7 @@ class SubscribePacketDecoder implements PacketDecoder<SubscribePacket> {
 
         while (body.hasRemaining()) {
             String topicFilter = decodeString(body);
-            int requestedQos = body.get() & 0x03;
+            int requestedQos = body.get() & QOS_MASK;
             subscriptions.add(new Subscription(topicFilter, MqttQoS.fromInt(requestedQos)));
         }
 
