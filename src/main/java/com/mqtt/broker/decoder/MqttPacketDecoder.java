@@ -4,7 +4,6 @@ import com.mqtt.broker.packet.MqttPacket;
 
 import java.nio.ByteBuffer;
 
-import static com.mqtt.broker.decoder.DecoderUtils.decodeFixedHeader;
 import static com.mqtt.broker.exception.UnsupportedPacketTypeException.unsupportedPacketType;
 
 public class MqttPacketDecoder implements ProtocolDecoder {
@@ -21,35 +20,24 @@ public class MqttPacketDecoder implements ProtocolDecoder {
     private final UnsubscribePacketDecoder unsubscribe = new UnsubscribePacketDecoder();
 
     public MqttPacket decode(ByteBuffer buffer) {
-        if (buffer.remaining() < 2) {
-            return null; // Not enough data to read fixed header + one byte of remaining length
-        }
+        return MqttFrame.read(buffer)
+                .map(this::decodeFrame)
+                .orElse(null);
+    }
 
-        buffer.mark(); // mark the current position in case of incomplete packet
-
-        var fixedHeader = decodeFixedHeader(buffer);
-        if (fixedHeader == null) {
-            buffer.reset(); // we have the full fixed header but not the full packet
-            return null;
-        }
-
-        ByteBuffer packetBody = buffer.slice();
-        packetBody.limit(fixedHeader.remainingLength());
-
-        buffer.position(buffer.position() + fixedHeader.remainingLength());
-
-        return switch (fixedHeader.packetType()) {
-            case CONNECT -> connect.decode(fixedHeader, packetBody);
-            case DISCONNECT -> disconnect.decode(fixedHeader, packetBody);
-            case PUBLISH -> publish.decode(fixedHeader, packetBody);
-            case PUBACK -> pubAck.decode(fixedHeader, packetBody);
-            case PINGREQ -> pingReq.decode(fixedHeader, packetBody);
-            case PUBREC -> pubRec.decode(fixedHeader, packetBody);
-            case PUBREL -> pubRel.decode(fixedHeader, packetBody);
-            case PUBCOMP -> pubComp.decode(fixedHeader, packetBody);
-            case SUBSCRIBE -> subscribe.decode(fixedHeader, packetBody);
-            case UNSUBSCRIBE -> unsubscribe.decode(fixedHeader, packetBody);
-            default -> throw unsupportedPacketType(fixedHeader.packetType());
+    private MqttPacket decodeFrame(MqttFrame frame) {
+        return switch (frame.fixedHeader().packetType()) {
+            case CONNECT -> connect.decode(frame);
+            case DISCONNECT -> disconnect.decode(frame);
+            case PUBLISH -> publish.decode(frame);
+            case PUBACK -> pubAck.decode(frame);
+            case PINGREQ -> pingReq.decode(frame);
+            case PUBREC -> pubRec.decode(frame);
+            case PUBREL -> pubRel.decode(frame);
+            case PUBCOMP -> pubComp.decode(frame);
+            case SUBSCRIBE -> subscribe.decode(frame);
+            case UNSUBSCRIBE -> unsubscribe.decode(frame);
+            default -> throw unsupportedPacketType(frame.fixedHeader().packetType());
         };
     }
 }

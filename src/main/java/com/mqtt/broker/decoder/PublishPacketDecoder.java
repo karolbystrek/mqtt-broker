@@ -1,9 +1,6 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
-
-import java.nio.ByteBuffer;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
@@ -12,7 +9,10 @@ import static com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
 class PublishPacketDecoder implements PacketDecoder<PublishPacket> {
 
     @Override
-    public PublishPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {
+    public PublishPacket decode(MqttFrame frame) {
+        var fixedHeader = frame.fixedHeader();
+        var body = frame.body();
+
         String topicName = decodeString(body);
         int packetIdentifier = 0;
 

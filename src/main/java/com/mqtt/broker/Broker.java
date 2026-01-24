@@ -90,7 +90,6 @@ public class Broker implements AutoCloseable {
         while (buffer.hasRemaining()) {
             var packet = packetDecoder.decode(buffer);
             if (packet == null) {
-                buffer.reset(); // incomplete packet, wait for more data
                 break;
             }
             packetExecutor.submit(() -> pipeline.process(clientChannel, packet));

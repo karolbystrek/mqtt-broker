@@ -1,9 +1,6 @@
 package com.mqtt.broker.decoder;
 
 import com.mqtt.broker.packet.ConnectPacket;
-import com.mqtt.broker.packet.MqttFixedHeader;
-
-import java.nio.ByteBuffer;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
 import static com.mqtt.broker.decoder.DecoderUtils.decodeTwoByteInt;
@@ -13,7 +10,10 @@ import static com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 class ConnectPacketDecoder implements PacketDecoder<ConnectPacket> {
 
     @Override
-    public ConnectPacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {
+    public ConnectPacket decode(MqttFrame frame) {
+        var fixedHeader = frame.fixedHeader();
+        var body = frame.body();
+
         String protocolName = decodeString(body);
         int protocolVersion = body.get() & 0xFF;
 

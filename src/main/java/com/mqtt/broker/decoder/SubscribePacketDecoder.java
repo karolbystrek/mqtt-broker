@@ -1,10 +1,8 @@
 package com.mqtt.broker.decoder;
 
-import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttQoS;
 import com.mqtt.broker.packet.SubscribePacket;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import static com.mqtt.broker.decoder.DecoderUtils.decodeString;
@@ -14,7 +12,10 @@ import static com.mqtt.broker.packet.SubscribePacket.Subscription;
 class SubscribePacketDecoder implements PacketDecoder<SubscribePacket> {
 
     @Override
-    public SubscribePacket decode(MqttFixedHeader fixedHeader, ByteBuffer body) {
+    public SubscribePacket decode(MqttFrame frame) {
+        var fixedHeader = frame.fixedHeader();
+        var body = frame.body();
+
         int packetIdentifier = decodeTwoByteInt(body);
         var subscriptions = new ArrayList<Subscription>();
 

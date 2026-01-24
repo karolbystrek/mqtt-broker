@@ -14,6 +14,9 @@ class DecoderUtils {
     }
 
     public static MqttFixedHeader decodeFixedHeader(ByteBuffer buffer) {
+        if (!buffer.hasRemaining()) {
+            return null;
+        }
         byte headerByte1 = buffer.get();
         var packetType = MqttPacketType.fromHeaderByte(headerByte1);
         byte flags = (byte) (headerByte1 & 0x0F);
@@ -24,8 +27,7 @@ class DecoderUtils {
         int bytesConsumed = 0;
         do {
             if (!buffer.hasRemaining()) {
-                buffer.reset(); // reset to marked position and wait for more data
-                return null;
+                return null; // Incomplete length bytes
             }
             digit = buffer.get();
             bytesConsumed++;
@@ -35,10 +37,6 @@ class DecoderUtils {
                 throw new IllegalArgumentException("Malformed remaining length");
             }
         } while ((digit & 0x80) != 0);
-
-        if (buffer.remaining() < remainingLength) {
-            return null;
-        }
 
         return new MqttFixedHeader(packetType, flags, remainingLength);
     }
