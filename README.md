@@ -76,7 +76,7 @@ The Strategy pattern allows the broker's authentication mechanism to be swapped 
 - **Problem**: We need strict authentication for production but open access for local testing. Hardcoding one logic path
   creates technical debt.
 - **Solution**: The `AuthorizationService` holds a reference to the `AuthorizationStrategy` interface. At startup,
-  depending on the `allowAnonymous` flag in `application.yml`, the system injects either the `FileBased` (checks
+  depending on the `allowAnonymous` flag in `config.yml`, the system injects either the `FileBased` (checks
   `users.json`) or `Permissive` (allows all) strategy.
 
 **Diagram**:
@@ -412,16 +412,18 @@ The lifecycle of an incoming packet from network read to response.
 
 The broker behavior is controlled via configuration files and persistent storage located in the root directory.
 
-### Configuration (`application.yml`)
+### Configuration (`config.yml`)
 
-Located at the **project root** (`application.yml`). Controls server settings.
+Located at the **project root**. Controls server settings.
 
 * **host**: The hostname or IP address to bind to (default: 'localhost').
 * **allowAnonymous**:
-    * `true`: Uses `PermissiveAuthorizationStrategy` (No credentials required).
-    * `false`: Uses `FileBasedAuthorizationStrategy` (Validates against `users.json`).
+    * `true`: No credentials required.
+    * `false`: Validates against `users.json`.
 * **port**: The TCP port (default: 1883).
-* **cleanSession**: Default behavior for new sessions.
+* **cleanSession**:
+    * `true`: The broker does not store any session information for the client. All information from previous connections is cleaned up.
+    * `false`: The broker stores session information (subscriptions, queued messages) for the client.
 
 ### User Repository (`users.json`)
 
