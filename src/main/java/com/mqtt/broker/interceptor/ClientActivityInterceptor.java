@@ -1,7 +1,6 @@
 package com.mqtt.broker.interceptor;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
 import com.mqtt.broker.packet.MqttPacket;
 import lombok.RequiredArgsConstructor;
 
@@ -15,7 +14,7 @@ public class ClientActivityInterceptor extends ChainablePacketInterceptor {
 
     @Override
     protected Optional<ProcessingResult> process(SocketChannel channel, MqttPacket packet) {
-        Session session = context.getSession(channel);
+        var session = context.getSessionManager().getSession(channel);
         if (session != null) {
             session.updateLastActivity();
         }

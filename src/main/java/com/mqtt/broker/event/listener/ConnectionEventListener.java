@@ -1,7 +1,6 @@
 package com.mqtt.broker.event.listener;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
 import com.mqtt.broker.event.BrokerEvent;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
@@ -10,6 +9,7 @@ import com.mqtt.broker.event.EventListener;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.PublishPacket;
 import com.mqtt.broker.packet.PublishPacket.PublishVariableHeader;
+import com.mqtt.broker.session.Session;
 import com.mqtt.broker.trie.TopicPath;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,7 @@ public class ConnectionEventListener implements EventListener {
     }
 
     private void handleConnectionLost(SocketChannel channel) {
-        Session session = context.getSession(channel);
+        var session = context.getSessionManager().getSession(channel);
         if (session == null) {
             return;
         }
@@ -83,6 +83,6 @@ public class ConnectionEventListener implements EventListener {
 
             context.getMessageDeliveryService().dispatch(publishPacket);
         }
-        context.closeSession(channel);
+        context.getSessionManager().closeSession(channel);
     }
 }

@@ -1,4 +1,4 @@
-package com.mqtt.broker;
+package com.mqtt.broker.session;
 
 import com.mqtt.broker.packet.MqttQoS;
 import com.mqtt.broker.packet.PublishPacket;
@@ -23,7 +23,6 @@ public class Session {
     private static final int MAX_PENDING_MESSAGES = 1000;
 
     private final String clientId;
-    @Getter
     private final String username;
     private final Map<String, MqttQoS> subscriptions;
     private final boolean isCleanSession;
@@ -91,7 +90,7 @@ public class Session {
 
     public void enqueuePendingMessage(PublishPacket publishPacket) {
         if (pendingMessages.size() >= MAX_PENDING_MESSAGES) {
-            pendingMessages.poll(); // Drop the oldest message
+            pendingMessages.poll(); // Drop the oldest value
         }
         pendingMessages.add(publishPacket);
     }

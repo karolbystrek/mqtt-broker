@@ -1,6 +1,6 @@
 package com.mqtt.broker.repository;
 
-import com.mqtt.broker.auth.AuthorizationEntry;
+import com.mqtt.broker.authorization.AuthorizationEntry;
 import com.mqtt.broker.trie.TopicPath;
 import com.mqtt.broker.trie.TopicTree;
 import com.mqtt.broker.trie.strategy.authorization.AuthorizationInsertionStrategy;

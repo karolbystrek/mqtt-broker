@@ -1,7 +1,7 @@
-package com.mqtt.broker.auth.strategy;
+package com.mqtt.broker.authorization.strategy;
 
-import com.mqtt.broker.auth.AuthorizationEntry;
-import com.mqtt.broker.auth.UserRegistry;
+import com.mqtt.broker.authorization.AuthorizationEntry;
+import com.mqtt.broker.authorization.UserRegistry;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.repository.AuthorizationRepository;
 import com.mqtt.broker.trie.TopicPath;

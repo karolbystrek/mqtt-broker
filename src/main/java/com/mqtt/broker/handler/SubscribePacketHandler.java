@@ -1,7 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
 import com.mqtt.broker.event.ClientSubscribedEvent;
 import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.MqttFixedHeader;
@@ -31,7 +30,7 @@ class SubscribePacketHandler implements PacketHandler<SubscribePacket> {
 
     @Override
     public ProcessingResult handle(SocketChannel clientChannel, SubscribePacket packet) throws IOException {
-        Session session = context.getSession(clientChannel);
+        var session = context.getSessionManager().getSession(clientChannel);
         if (session == null) {
             log.error("No session found for channel: {}", clientChannel.getRemoteAddress());
             return empty();

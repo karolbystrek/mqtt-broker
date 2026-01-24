@@ -1,4 +1,4 @@
-package com.mqtt.broker.persistence;
+package com.mqtt.broker.session.persistence;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;

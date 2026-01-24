@@ -6,6 +6,7 @@ import com.mqtt.broker.decoder.ProtocolDecoder;
 import com.mqtt.broker.event.ConnectionLostEvent;
 import com.mqtt.broker.event.EventPublisher;
 import com.mqtt.broker.interceptor.Pipeline;
+import com.mqtt.broker.session.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -98,12 +99,14 @@ public class Broker implements AutoCloseable {
     }
 
     private void checkKeepAliveTimeouts() {
-        var expiredSessions = context.getActiveSessions().entrySet().stream()
-                .filter(entry -> entry.getValue().isKeepAliveExpired()).toList();
-        expiredSessions.forEach(entry -> {
-            var session = entry.getValue();
+        var expiredSessions = context.getSessionManager().getActiveSessions().stream()
+                .filter(Session::isKeepAliveExpired).toList();
+        expiredSessions.forEach(session -> {
             log.warn("Keep Alive timeout for client: {}", session.getClientId());
-            ofNullable(entry.getKey().keyFor(selector)).ifPresent(this::cleanupClient);
+            var clientChannel = context.getSessionManager().getClientChannel(session.getClientId());
+            if (clientChannel != null) {
+                ofNullable(clientChannel.keyFor(selector)).ifPresent(this::cleanupClient);
+            }
         });
     }
 
@@ -137,7 +140,7 @@ public class Broker implements AutoCloseable {
 
     public void stop() {
         try {
-            context.persistSessions();
+            context.getSessionManager().persistSessions();
             if (selector != null)
                 selector.close();
             if (serverChannel != null)

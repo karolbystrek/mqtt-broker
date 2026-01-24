@@ -32,7 +32,7 @@ public class PacketAuthorizationInterceptor extends ChainablePacketInterceptor {
     }
 
     private Optional<ProcessingResult> handlePublishAuthorization(SocketChannel channel, PublishPacket packet) {
-        var session = context.getSession(channel);
+        var session = context.getSessionManager().getSession(channel);
         if (session == null) {
             return Optional.empty();
         }

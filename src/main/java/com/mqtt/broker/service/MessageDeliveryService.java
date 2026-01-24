@@ -1,11 +1,13 @@
 package com.mqtt.broker.service;
 
-import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
 import com.mqtt.broker.encoder.MqttPacketEncoder;
 import com.mqtt.broker.packet.MqttFixedHeader;
 import com.mqtt.broker.packet.MqttPacket;
 import com.mqtt.broker.packet.PublishPacket;
+import com.mqtt.broker.repository.RetainedMessageRepository;
+import com.mqtt.broker.repository.SubscriptionRepository;
+import com.mqtt.broker.session.Session;
+import com.mqtt.broker.session.SessionManager;
 import com.mqtt.broker.trie.TopicPath;
 import com.mqtt.broker.trie.strategy.retainedMessage.RetainedMessage;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +23,11 @@ import static com.mqtt.broker.packet.MqttQoS.AT_MOST_ONCE;
 @RequiredArgsConstructor
 public class MessageDeliveryService {
 
-    private final BrokerContext context;
     private final MqttPacketEncoder packetEncoder = new MqttPacketEncoder();
+
+    private final SessionManager sessionManager;
+    private final SubscriptionRepository subscriptionRepository;
+    private final RetainedMessageRepository retainedMessageRepository;
 
     public void send(SocketChannel channel, MqttPacket packet) {
         var encodedPacketBuffer = packetEncoder.encode(packet);
@@ -44,13 +49,13 @@ public class MessageDeliveryService {
             var topic = packet.variableHeader().topicName();
             RetainedMessage retainedMessage = null;
             if (packet.payload() != null && packet.payload().length > 0) {
-                log.info("Retaining message for topic: {}, QoS: {}", topic, packet.getQosLevel());
+                log.info("Retaining value for topic: {}, QoS: {}", topic, packet.getQosLevel());
                 retainedMessage = new RetainedMessage(packet.payload(), packet.getQosLevel());
             } else {
-                log.info("Clearing retained message for topic: {}", topic);
+                log.info("Clearing retained value for topic: {}", topic);
             }
 
-            context.getRetainedMessageRepository().add(TopicPath.parse(topic), retainedMessage);
+            retainedMessageRepository.add(TopicPath.parse(topic), retainedMessage);
         }
 
         var publishPacket = getPublishPacket(packet);
@@ -83,7 +88,7 @@ public class MessageDeliveryService {
         var topic = packet.variableHeader().topicName();
         var subscribedClientIds = new CopyOnWriteArraySet<String>();
 
-        context.getSubscriptionRepository().findSubscribers(TopicPath.parse(topic), subscribedClientIds);
+        subscriptionRepository.findSubscribers(TopicPath.parse(topic), subscribedClientIds);
 
         if (subscribedClientIds.isEmpty()) {
             return;
@@ -93,7 +98,7 @@ public class MessageDeliveryService {
     }
 
     private void routeMessageToClient(String clientId, PublishPacket packet) {
-        SocketChannel channel = context.getClientChannel(clientId);
+        SocketChannel channel = sessionManager.getClientChannel(clientId);
 
         if (channel != null) {
             send(channel, packet);
@@ -103,7 +108,7 @@ public class MessageDeliveryService {
     }
 
     private void queueMessageForOfflineClient(String clientId, PublishPacket packet) {
-        Session persistentSession = context.getPersistentSession(clientId);
+        Session persistentSession = sessionManager.getPersistentSession(clientId);
 
         if (persistentSession == null) {
             return;

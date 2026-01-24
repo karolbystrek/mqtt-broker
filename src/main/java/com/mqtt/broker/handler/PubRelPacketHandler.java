@@ -23,7 +23,7 @@ class PubRelPacketHandler implements PacketHandler<PubRelPacket> {
 
     @Override
     public ProcessingResult handle(SocketChannel clientChannel, PubRelPacket packet) {
-        var session = context.getSession(clientChannel);
+        var session = context.getSessionManager().getSession(clientChannel);
         int packetId = packet.packetIdentifier();
 
         var message = session.retrieveIncomingMessage(packetId);

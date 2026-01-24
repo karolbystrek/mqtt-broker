@@ -39,7 +39,10 @@ class PublishPacketHandler implements PacketHandler<PublishPacket> {
 
             case EXACTLY_ONCE -> packet.getPacketIdentifier()
                     .map(packetId -> {
-                        context.getSession(clientChannel).storeIncomingMessage(packet);
+                        var session = context.getSessionManager().getSession(clientChannel);
+                        if (session != null) {
+                            session.storeIncomingMessage(packet);
+                        }
                         return withResponse(createPubRec(packetId));
                     })
                     .orElse(empty()); // error, qos 2 must have a packet id

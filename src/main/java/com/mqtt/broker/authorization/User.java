@@ -1,4 +1,4 @@
-package com.mqtt.broker.auth;
+package com.mqtt.broker.authorization;
 
 import com.mqtt.broker.trie.TopicPath;
 import lombok.Builder;

@@ -24,16 +24,16 @@ class UnsubscribePacketHandler implements PacketHandler<UnsubscribePacket> {
 
     @Override
     public ProcessingResult handle(SocketChannel clientChannel, UnsubscribePacket packet) throws IOException {
-        var clientSession = context.getSession(clientChannel);
-        if (clientSession == null) {
+        var session = context.getSessionManager().getSession(clientChannel);
+        if (session == null) {
             log.error("No session found for channel: {}", clientChannel.getRemoteAddress());
             return empty();
         }
 
         packet.topicFilters().forEach(topicFilter -> {
-            clientSession.removeSubscription(topicFilter);
+            session.removeSubscription(topicFilter);
 
-            context.getSubscriptionRepository().remove(clientSession.getClientId(), TopicPath.parse(topicFilter));
+            context.getSubscriptionRepository().remove(session.getClientId(), TopicPath.parse(topicFilter));
         });
 
         var unsubAckFixedHeader = new MqttFixedHeader(UNSUBACK, (byte) 0, 2);

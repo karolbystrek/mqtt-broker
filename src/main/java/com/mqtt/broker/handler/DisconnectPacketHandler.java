@@ -1,7 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
 import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.interceptor.ProcessingResult;
 import com.mqtt.broker.packet.DisconnectPacket;
@@ -21,7 +20,7 @@ class DisconnectPacketHandler implements PacketHandler<DisconnectPacket> {
 
     @Override
     public ProcessingResult handle(SocketChannel clientChannel, DisconnectPacket packet) throws IOException {
-        Session session = context.getSession(clientChannel);
+        var session = context.getSessionManager().getSession(clientChannel);
         if (session == null) {
             log.warn("No active session found for disconnecting client");
             return withEvent(new CloseConnectionEvent(clientChannel));
@@ -29,9 +28,9 @@ class DisconnectPacketHandler implements PacketHandler<DisconnectPacket> {
 
         String clientId = session.getClientId();
 
-        session.setWillMessage(null); // discard will message
+        session.setWillMessage(null); // discard will value
 
-        context.closeSession(clientChannel);
+        context.getSessionManager().closeSession(clientChannel);
         log.info("Closed session for client: {}", clientId);
 
         return withEvent(new CloseConnectionEvent(clientChannel));

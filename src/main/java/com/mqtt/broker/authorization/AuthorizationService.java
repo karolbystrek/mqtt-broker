@@ -1,6 +1,6 @@
-package com.mqtt.broker.auth;
+package com.mqtt.broker.authorization;
 
-import com.mqtt.broker.auth.strategy.AuthorizationStrategy;
+import com.mqtt.broker.authorization.strategy.AuthorizationStrategy;
 import com.mqtt.broker.packet.ConnectPacket;
 import lombok.extern.slf4j.Slf4j;
 

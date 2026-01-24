@@ -1,4 +1,4 @@
-package com.mqtt.broker.auth.strategy;
+package com.mqtt.broker.authorization.strategy;
 
 import com.mqtt.broker.packet.ConnectPacket;
 

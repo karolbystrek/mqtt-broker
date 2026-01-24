@@ -1,6 +1,6 @@
 package com.mqtt.broker.connection;
 
-import com.mqtt.broker.Session;
+import com.mqtt.broker.session.Session;
 import lombok.Getter;
 import lombok.Setter;
 

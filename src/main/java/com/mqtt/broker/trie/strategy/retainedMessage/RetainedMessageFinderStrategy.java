@@ -81,7 +81,7 @@ public class RetainedMessageFinderStrategy implements TrieStrategy<RetainedMessa
         if (retained == null) {
             return;
         }
-        log.info("Found retained message for topic: {}", topicName);
+        log.info("Found retained value for topic: {}", topicName);
         retainedMessages.add(new RetainedMessageWithTopic(retained, topicName));
     }
 }

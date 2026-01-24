@@ -1,8 +1,6 @@
 package com.mqtt.broker.handler;
 
 import com.mqtt.broker.BrokerContext;
-import com.mqtt.broker.Session;
-import com.mqtt.broker.Session.WillMessage;
 import com.mqtt.broker.event.ClientConnectedEvent;
 import com.mqtt.broker.event.CloseConnectionEvent;
 import com.mqtt.broker.interceptor.ProcessingResult;
@@ -12,6 +10,8 @@ import com.mqtt.broker.packet.ConnAckPacket.MqttConnectReturnCode;
 import com.mqtt.broker.packet.ConnectPacket;
 import com.mqtt.broker.packet.ConnectPacket.ConnectVariableHeader;
 import com.mqtt.broker.packet.MqttFixedHeader;
+import com.mqtt.broker.session.Session;
+import com.mqtt.broker.session.Session.WillMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +38,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
     @Override
     public ProcessingResult handle(SocketChannel clientChannel, ConnectPacket packet) throws IOException {
-        if (context.getSession(clientChannel) != null) {
+        if (context.getSessionManager().getSession(clientChannel) != null) {
             log.error("Protocol violation: Second CONNECT packet received from already connected client. Disconnecting.");
             return withEvent(new CloseConnectionEvent(clientChannel));
         }
@@ -53,7 +53,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         var variableHeader = packet.variableHeader();
 
         // Handle existing connection with same Client ID
-        SocketChannel existingClientChannel = context.getClientChannel(clientId);
+        SocketChannel existingClientChannel = context.getSessionManager().getClientChannel(clientId);
         if (existingClientChannel != null && existingClientChannel != clientChannel) {
             log.info("Client with ID {} already connected. Disconnecting old connection.", clientId);
             existingClientChannel.close();
@@ -67,7 +67,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             sessionPresentFlag = 0;
         } else {
             // If CleanSession is set to 0, the Server MUST resume communications with the Client based on state from the current Session (as identified by the Client identifier).
-            if (context.getPersistentSession(clientId) != null) {
+            if (context.getSessionManager().getPersistentSession(clientId) != null) {
                 sessionPresentFlag = 1;
             } else {
                 sessionPresentFlag = 0;
@@ -84,7 +84,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
         }
 
         session.updateLastActivity();
-        context.registerSession(clientChannel, session);
+        context.getSessionManager().registerSession(clientChannel, session);
 
         var connAckPacket = createConnAckPacket(sessionPresentFlag, CONNECTION_ACCEPTED);
 
@@ -129,7 +129,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
 
     private Session resolveSession(String clientId, String username, boolean cleanSession, int keepAlive) {
         if (cleanSession) {
-            Session oldPersistentSession = context.removePersistentSession(clientId);
+            Session oldPersistentSession = context.getSessionManager().removePersistentSession(clientId);
             if (oldPersistentSession != null) {
                 context.getSubscriptionRepository().removeForClient(clientId);
                 oldPersistentSession.clearPendingMessages();
@@ -137,7 +137,7 @@ class ConnectPacketHandler implements PacketHandler<ConnectPacket> {
             return new Session(clientId, username, true, keepAlive);
         } else {
             // Persistent session: restore if exists, otherwise create new
-            Session session = context.removePersistentSession(clientId);
+            Session session = context.getSessionManager().removePersistentSession(clientId);
             if (session != null) {
                 session.updateKeepAlive(keepAlive);
             } else {

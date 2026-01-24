@@ -1,8 +1,9 @@
-package com.mqtt.broker.persistence;
+package com.mqtt.broker.session.persistence.strategy;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mqtt.broker.Session;
+import com.mqtt.broker.session.persistence.MqttPersistenceModule;
+import com.mqtt.broker.session.Session;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
@@ -17,20 +18,21 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 @Slf4j
-public class SessionPersistenceService {
+public class FileSessionPersistenceStrategy implements SessionPersistenceStrategy {
 
     private static final String STORAGE_FILE = "sessions.json";
 
     private final ObjectMapper objectMapper;
     private final File file;
 
-    public SessionPersistenceService() {
+    public FileSessionPersistenceStrategy() {
         this.file = new File(STORAGE_FILE);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(INDENT_OUTPUT);
         this.objectMapper.registerModule(new MqttPersistenceModule());
     }
 
+    @Override
     public void save(Collection<Session> sessions) {
         try {
             objectMapper.writeValue(file, sessions);
@@ -40,6 +42,7 @@ public class SessionPersistenceService {
         }
     }
 
+    @Override
     public Map<String, Session> load() {
         if (!file.exists() || file.length() == 0) {
             log.info("No session storage file found at {}, starting with empty sessions", STORAGE_FILE);
