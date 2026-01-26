@@ -58,6 +58,72 @@ structured into distinct logical layers to ensure separation of concerns.
 5. **Event System**: A synchronous event bus (`BrokerEventPublisher`) that decouples the main processing loop from side
    effects like logging, metrics, or complex inter-component notifications.
 
+```mermaid
+graph TD
+    subgraph Network_Layer ["1. Network Layer (NIO)"]
+        Listener["ServerListener / Broker Loop"]
+        Selector["Java NIO Selector"]
+        Channel["SocketChannel"]
+    end
+
+    subgraph Protocol_Layer ["2. Protocol Layer"]
+        Decoder["MqttPacketDecoder"]
+        Encoder["MqttPacketEncoder"]
+        POJO["MqttPacket POJO"]
+    end
+
+    subgraph Dispatcher_Layer ["3. Dispatcher Layer"]
+        Router["MqttPacketHandler"]
+    end
+
+    subgraph Domain_Layer ["4. Domain / Business Layer"]
+        Auth["Authorization Service"]
+        Topics["Topic Tree (Trie)"]
+        Sessions["Session Management"]
+    end
+
+    %% Data Flow Connections
+    Listener -- "Accepts Connection" --> Selector
+    Selector -- "Reads Raw Bytes" --> Channel
+    Channel -- "ByteBuffer" --> Decoder
+    Decoder -- "Decodes to" --> POJO
+    POJO -- "Passed to" --> Router
+    
+    Router -- "Validates User" --> Auth
+    Router -- "Matches/Stores" --> Topics
+    Router -- "Persists State" --> Sessions
+    
+    %% Response Flow
+    Router -. "Processing Result" .-> Encoder
+    Encoder -. "Encoded Bytes" .-> Channel
+```
+
+```mermaid
+graph TD
+    subgraph Core_System ["Core Processing"]
+        Handler["Packet Handlers"]
+        Connection["Connection Manager"]
+    end
+
+    subgraph Event_System ["5. Event System"]
+        Bus["BrokerEventPublisher"]
+    end
+
+    subgraph Listeners ["Observers (Side Effects)"]
+        Log["Logging Listener"]
+        Metric["Metrics Collector"]
+        Cleanup["Resource Cleanup"]
+    end
+
+    %% Event Flow
+    Handler -- "Publishes Event" --> Bus
+    Connection -- "Publishes Event" --> Bus
+    
+    Bus -- "Notify" --> Log
+    Bus -- "Notify" --> Metric
+    Bus -- "Notify" --> Cleanup
+```
+
 ## 3. Implemented Design Patterns
 
 The following design patterns were implemented **from scratch** to solve specific architectural challenges.
