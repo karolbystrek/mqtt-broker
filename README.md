@@ -130,325 +130,568 @@ The following design patterns were implemented **from scratch** to solve specifi
 
 ### A. Strategy Pattern
 
+The Strategy pattern is a cornerstone of our architecture, appearing in multiple subsystems to decouple high-level business logic from interchangeable low-level algorithms. We employ it in two distinct scenarios:
+
+#### 1. Authorization Strategy
+
 **Location**:
 
-- **Context**: `src/main/java/com/mqtt/broker/auth/AuthorizationService.java`
-- **Interface**: `src/main/java/com/mqtt/broker/auth/strategy/AuthorizationStrategy.java`
-- **Implementations**: `FileBasedAuthorizationStrategy`, `PermissiveAuthorizationStrategy`
+*   **Context (`Context`)**: `src/main/java/com/mqtt/broker/authorization/AuthorizationService.java`
+*   **Strategy Interface (`Strategy`)**: `src/main/java/com/mqtt/broker/authorization/strategy/AuthorizationStrategy.java`
+*   **Concrete Strategies (`ConcreteStrategy`)**: `FileBasedAuthorizationStrategy`, `PermissiveAuthorizationStrategy`
 
-**Justification**:
-The Strategy pattern allows the broker's authentication mechanism to be swapped at runtime based on configuration.
+**Motivation (Algorithmic Justification)**:
+We utilize the Strategy Pattern to encapsulate fundamentally different **validation algorithms**, not just data variations. While the input (username/password) remains constant, the computational logic required to process that input varies significantly between environments:
 
-- **Problem**: We need strict authentication for production but open access for local testing. Hardcoding one logic path
-  creates technical debt.
-- **Solution**: The `AuthorizationService` holds a reference to the `AuthorizationStrategy` interface. At startup,
-  depending on the `allowAnonymous` flag in `config.yml`, the system injects either the `FileBased` (checks
-  `users.json`) or `Permissive` (allows all) strategy.
+1.  **Permissive Strategy (Development)**:
+    *   **Algorithm**: No-op / Constant Time O(1).
+    *   **Logic**: Blindly accepts all connections and grants full permissions. It bypasses all verification logic.
+    *   **Use Case**: Local testing, benchmarking where security overhead is undesirable.
 
-**Diagram**:
+2.  **File-Based Strategy (Production)**:
+    *   **Algorithm**: I/O Bound Search & Match.
+    *   **Logic**: Involves file system I/O, JSON deserialization (`UserRegistry`), and iterative permission matching against a repository.
+    *   **Use Case**: Production environments requiring persistent credential constraints.
+
+This distinction is critical: The broker's core logic (`AuthorizationService`) functions independently of whether the underlying validation requires a simple boolean return or a complex disk read operation.
+
+**Implementation**:
+The `AuthorizationStrategy` interface defines the contract that decouples the Broker (Context) from the authentication mechanism:
+
+```java
+public interface AuthorizationStrategy {
+    boolean authenticate(ConnectPacket packet);
+    boolean canSubscribe(String username, String topic);
+    boolean canPublish(String username, String topic);
+}
+```
+
+The **Context** (`AuthorizationService`) delegates to this interface. It treats authentication as a "black box" operation, adhering to the **Open/Closed Principle**.
+
 
 ```mermaid
 classDiagram
+    %% Context
     class AuthorizationService {
-        -AuthorizationStrategy strategy
         +authenticate(ConnectPacket)
         +canSubscribe(username, topic)
-        +canPublish(username, topic)
     }
+
+    %% Interface
     class AuthorizationStrategy {
-        <<interface>>
+        <<Interface>>
         +authenticate(ConnectPacket)
         +canSubscribe(username, topic)
-        +canPublish(username, topic)
     }
-    class FileBasedAuthorizationStrategy {
-        +authenticate(ConnectPacket)
-        +canSubscribe(username, topic)
-        +canPublish(username, topic)
-    }
+
+    %% Algorithm A: No-Op
     class PermissiveAuthorizationStrategy {
-        +authenticate(ConnectPacket)
-        +canSubscribe(username, topic)
-        +canPublish(username, topic)
+        <<Algorithm: O(1) No-Op>>
+        +authenticate() : true
     }
-    
-    
-    AuthorizationService o--> AuthorizationStrategy
+
+    %% Algorithm B: I/O Bound
+    class FileBasedAuthorizationStrategy {
+        <<Algorithm: JSON Parsing & Lookup>>
+        -UserRegistry registry
+        +authenticate() : boolean
+    }
+
+    AuthorizationService o--> AuthorizationStrategy : Delegates
     FileBasedAuthorizationStrategy ..|> AuthorizationStrategy
     PermissiveAuthorizationStrategy ..|> AuthorizationStrategy
 ```
 
-**Trade-offs**:
+**Pros & Cons**:
+*   **Pros**: Isolates security logic (Open/Closed Principle); allows switching between a zero-config "Dev Mode" and strict "Prod Mode" without code changes.
+*   **Cons**: Adds slight complexity compared to a simple hardcoded check; requires the `BrokerBuilder` to handle the initialization wiring.
 
-- **Complexity**: Increases the number of classes (one interface + multiple implementation classes).
-- **Configuration Overhead**: Requires a mechanism to choose the correct strategy at runtime.
+**Future-Proofing & Extensibility**:
+*   The true value of this pattern is demonstrated when new authentication requirements arise. For example, integrating **OAuth 2.0** or **LDAP**:
+    These would introduce a third algorithm: **Network I/O** (HTTP requests/TCP sockets to external Identity Providers).
+    Because the `AuthorizationService` relies on the abstraction, we can implement an `OAuthStrategy` without modifying a single line of the broker's core dispatching code. An `if-else` block would require invasive changes to the core system for every new provider.
+
+#### 2. Session Persistence Strategy
+
+**Location**:
+
+*   **Context (`Context`)**: `src/main/java/com/mqtt/broker/session/SessionManager.java`
+*   **Strategy Interface (`Strategy`)**: `src/main/java/com/mqtt/broker/session/persistence/strategy/SessionPersistenceStrategy.java`
+*   **Concrete Strategies (`ConcreteStrategy`)**: `FileSessionPersistenceStrategy`, `NoOpSessionPersistenceStrategy`
+
+**Motivation**:
+MQTT sessions can be either **ephemeral** (lost on restart) or **durable** (survive restarts). The Strategy Pattern allows us to toggle this architectural characteristic without changing the session management logic.
+
+1.  **No-Op Strategy (Ephemeral)**:
+    *   **Algorithm**: No-op.
+    *   **Logic**: The `save` method does nothing. `load` returns an empty map. This forces the broker to hold sessions only in RAM (`ConcurrentHashMap`), which is faster but volatile.
+    *   **Use Case**: High-throughput scenarios where message durability across restarts is not required.
+
+2.  **File-Based Strategy (Durable)**:
+    *   **Algorithm**: Serialization / Deserialization.
+    *   **Logic**: Uses `Jackson` to serialize session state (subscriptions, queued messages) to `sessions.json`.
+    *   **Use Case**: Reliable messaging where client state must be preserved even if the server crashes.
+
+**Implementation**:
+The `SessionManager` acts as the **Context**. It manages active connections but delegates the decision of "how to survive a restart" to the strategy:
+
+```java
+public interface SessionPersistenceStrategy {
+    void save(Collection<Session> sessions);
+    Map<String, Session> load();
+}
+```
+
+
+```mermaid
+classDiagram
+    %% Context
+    class SessionManager {
+        -SessionPersistenceStrategy persistenceStrategy
+        +persistSessions()
+        +registerSession()
+    }
+
+    %% Interface
+    class SessionPersistenceStrategy {
+        <<Interface>>
+        +save(Collection~Session~)
+        +load() Map~String, Session~
+    }
+
+    %% Strategies
+    class NoOpSessionPersistenceStrategy {
+        <<Algorithm: No-Op>>
+        +save()
+        +load()
+    }
+
+    class FileSessionPersistenceStrategy {
+        <<Algorithm: JSON Serialization>>
+        -ObjectMapper mapper
+        +save()
+        +load()
+    }
+
+    SessionManager o--> SessionPersistenceStrategy : Delegates
+    NoOpSessionPersistenceStrategy ..|> SessionPersistenceStrategy
+    FileSessionPersistenceStrategy ..|> SessionPersistenceStrategy
+```
+
+**Pros & Cons (General)**:
+
+*   **Pros**:
+    *   **Separation of Concerns**: The core logic (`AuthorizationService`, `SessionManager`) focuses on *what* to do, while the strategies focus on *how* to do it.
+    *   **Testability**: We can inject mock strategies (e.g., a `MemoryMapPersistenceStrategy`) during unit tests to verify behavior without creating actual files on disk.
+*   **Cons**:
+    *   **Indirection**: Navigating the code requires jumping between the interface and its implementations, which can slightly increase cognitive load for new developers.
+    *   **Lifecycle Management**: The application (Context) must ensure the strategies are initialized correctly at startup (e.g., ensuring the `sessions.json` file exists or is readable).
 
 ### B. Observer Pattern
 
 **Location**:
 
-- **Subject**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
-- **Observer Interface**: `src/main/java/com/mqtt/broker/event/EventListener.java`
-- **Concrete Observers**: `ConnectionEventListener`, `DeliveryEventListener`, `SubscriptionEventListener`
+- **Subject Interface (`Subject`)**: `src/main/java/com/mqtt/broker/event/EventPublisher.java`
+- **Concrete Subject (`ConcreteSubject`)**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
+- **Observer Interface (`Observer`)**: `src/main/java/com/mqtt/broker/event/EventListener.java`
+- **Concrete Observers (`ConcreteObserver`)**:
+    - `src/main/java/com/mqtt/broker/event/listener/ConnectionEventListener.java`
+    - `src/main/java/com/mqtt/broker/event/listener/DeliveryEventListener.java`
+    - `src/main/java/com/mqtt/broker/event/listener/SubscriptionEventListener.java`
 
-**Justification**:
-The broker needs to perform auxiliary tasks (logging, updating stats, cleaning up resources) when state changes occur,
-without polluting the core packet processing logic.
+**Motivation (Architectural Decoupling)**:
+The Observer Pattern is implemented to achieve **Inversion of Control (IoC)** regarding system side-effects.
+- **Problem**: Tightly coupling the core packet processing logic (e.g., `ConnectPacketHandler`) with auxiliary concerns (Logging, Metrics, Session Cleanup) violates the **Single Responsibility Principle**. It renders the core difficult to test and maintain.
+- **Solution**: We introduce an event-driven architecture where core components act as **Subjects** that broadcast state changes (`BrokerEvent`) without knowledge of the consumers. **Observers** (`EventListener`) subscribe to these events, allowing functionality to be composed dynamically.
 
-- **Problem**: Adding logging or metrics directly into `ConnectPacketHandler` violates the **Single Responsibility
-  Principle**.
-- **Solution**: The core handlers publish events (e.g., `ClientConnectedEvent`) via the `BrokerEventPublisher`.
-  Independent listeners subscribe to these events. This makes the system extensible; adding a new metric collector
-  requires no changes to the core business logic.
+**Implementation Details**:
+The system employs a synchronous, explicitly modeled Observer implementation:
 
-**Diagram**:
+1.  **Subject Definition**: The `BrokerEventPublisher` maintains a registry (`List<EventListener>`) of active subscribers using **Aggregation**.
+2.  **Subscription Mechanism**: During application bootstrap, dependent components register themselves via the `addListener()` method.
+3.  **Synchronous Dispatch**: When a `publish(event)` call is triggered, the Subject iterates sequentially through its registry. It invokes the `onEvent(event)` method on each listener, passing the immutable `BrokerEvent` context.
+    *   *Note*: This implementation is **synchronous**, meaning the publisher blocks until all listeners complete. This ensures data consistency but requires listeners to be non-blocking I/O safe.
+
 
 ```mermaid
 classDiagram
-    class BrokerEventPublisher {
-        -List~EventListener~ listeners
-        +publish(BrokerEvent)
+    %% --- Interfaces ---
+    class EventPublisher {
+        <<Interface>>
+        +publish(BrokerEvent event)
     }
+
     class EventListener {
-        <<interface>>
-        +onEvent(BrokerEvent)
+        <<Interface>>
+        +onEvent(BrokerEvent event)
     }
+
+    %% --- Concrete Implementations ---
+    class BrokerEventPublisher {
+        <<Concrete Subject>>
+        -List~EventListener~ listeners
+        +publish(BrokerEvent event)
+        +addListener(EventListener listener)
+    }
+
     class ConnectionEventListener {
-        +onEvent(BrokerEvent)
+        <<Concrete Observer>>
+        +onEvent(BrokerEvent event)
     }
     class DeliveryEventListener {
-        +onEvent(BrokerEvent)
+        <<Concrete Observer>>
+        +onEvent(BrokerEvent event)
     }
     class SubscriptionEventListener {
-        +onEvent(BrokerEvent)
+        <<Concrete Observer>>
+        +onEvent(BrokerEvent event)
     }
+
+    %% --- Event Object ---
+    class BrokerEvent {
+        <<Event Object>>
+        +long timestamp
+        +Session session
+    }
+
+    %% --- Relationships with explicit labels ---
     
-    BrokerEventPublisher o-- EventListener
-    ConnectionEventListener ..|> EventListener
-    DeliveryEventListener ..|> EventListener
-    SubscriptionEventListener ..|> EventListener
+    %% Realization (Implements)
+    EventPublisher <|.. BrokerEventPublisher : implements
+    EventListener <|.. ConnectionEventListener : implements
+    EventListener <|.. DeliveryEventListener : implements
+    EventListener <|.. SubscriptionEventListener : implements
+
+    %% Aggregation (Has-a list of)
+    BrokerEventPublisher o--> "0..*" EventListener : maintains registry
+
+    %% Dependency (Uses)
+    EventPublisher ..> BrokerEvent : depends on
+    EventListener ..> BrokerEvent : consumes
+    
+    %% Note: The Subject notifies the Observer via the Interface
+    BrokerEventPublisher ..> EventListener : notifies
 ```
 
-**Trade-offs**:
-
-- **Debugging Difficulty**: The flow of control is inverted; it can be hard to trace "who" reacted to an event.
-- **Ordering Issues**: Observers are notified in an arbitrary order, which can lead to race conditions if dependencies
-  exist between listeners. In this case those issues do not arise due to the independent design of listeners.
+**Pros & Cons**:
+*   **Pros**:
+    *   **Loose Coupling**: The publisher (Subject) has no compile-time dependency on concrete listeners. New functionality (e.g., Auditing) can be added by simply implementing a new `EventListener` class.
+    *   **Dynamic Composition**: Subscribers can be attached or detached at startup (or runtime) based on configuration.
+*   **Cons**:
+    *   **Synchronous Latency**: Since dispatch is synchronous, a slow listener will block the main processing thread, potentially degrading broker throughput.
+    *   **Lapsed Listener Problem**: If listeners are not explicitly unregistered (though less relevant in a server singleton lifecycle), it can lead to memory leaks.
+    *   **Indeterministic Ordering**: The order of notification is technically undefined (dependent on list insertion), implying listeners must be independent of one another.
 
 ### C. Command Pattern (Dispatcher)
 
 **Location**:
 
-- **Invoker**: `src/main/java/com/mqtt/broker/handler/MqttPacketHandler.java`
-- **Command Interface**: `src/main/java/com/mqtt/broker/handler/PacketHandler.java`
-- **Concrete Commands**: `ConnectPacketHandler`, `PublishPacketHandler`, `SubscribePacketHandler`, etc.
+- **Invoker (`Invoker`)**: `src/main/java/com/mqtt/broker/handler/MqttPacketHandler.java`
+- **Command Interface (`Command`)**: `src/main/java/com/mqtt/broker/handler/PacketHandler.java`
+- **Concrete Commands (`ConcreteCommand`)**: `ConnectPacketHandler`, `PublishPacketHandler`, etc.
+- **Receiver (`Receiver`)**: `AuthorizationService`, `SessionManager`, `TopicTree`, etc.
+- **Client (`Client`)**: `BrokerBuilder` (Configuration & wiring).
 
-**Justification**:
-MQTT has distinct packet types that require unique processing logic.
+**Motivation (Encapsulation of Requests)**:
+The Command Pattern allows us to turn a request (a network packet) into a stand-alone object that contains all information about the request.
+- **Problem**: A massive `switch` statement in the main network loop would violate the **Open/Closed Principle** and create a "God Class" coupled to every business logic service.
+- **Solution**: We encapsulate the handling logic into separate **Command** objects (`PacketHandler` implementations). The **Invoker** (`MqttPacketHandler`) merely identifies the packet type and triggers the corresponding command's `handle()` method, without knowing the execution details.
 
-- **Problem**: Handling all packet types in a massive `switch` or `if-else` block leads to a "God Class" and violates
-  the **Open/Closed Principle**.
-- **Solution**: We map each `MqttPacketType` to a specific `PacketHandler`. The `MqttPacketHandler` identifies the type
-  and calls `handle()`. Adding a new packet type (e.g., for MQTT 5.0) involves simply creating a new class and
-  registering it, without modifying the dispatching mechanism.
+**Implementation Details**:
+1.  **Command Interface**: The functional interface `PacketHandler<T>` declares the `handle(channel, packet)` method.
+2.  **Concrete Commands**: Classes like `ConnectPacketHandler` implement this interface. They are pre-configured with references to necessary **Receivers** (e.g., `SessionManager`) via constructor injection.
+3.  **Invoker Execution**: `MqttPacketHandler` stores a map (or fields) of these commands. When a packet arrives, it delegates execution: `handler.handle(channel, packet)`.
 
-**Diagram**:
 
 ```mermaid
 classDiagram
+    %% --- Participants ---
+    class Client {
+        <<Client>>
+        +main()
+    }
+
     class MqttPacketHandler {
-        +handle(channel, packet) ProcessingResult
+        <<Invoker>>
+        -Map~Type, PacketHandler~ commands
+        +handle(MqttPacket packet)
     }
+
     class PacketHandler {
-        <<interface>>
-        +handle(channel, packet) ProcessingResult
+        <<Interface>>
+        <<Command>>
+        +handle(MqttPacket packet)
     }
+
     class ConnectPacketHandler {
-        +handle(channel, packet) ProcessingResult
+        <<Concrete Command>>
+        -SessionManager sessionManager
+        -AuthorizationService authService
+        +handle(MqttPacket packet)
     }
-    class DisconnectPacketHandler {
-        +handle(channel, packet) ProcessingResult
+
+    class SessionManager {
+        <<Receiver>>
+        +registerSession()
     }
- 
-    class PublishPacketHandler {
-        +handle(channel, packet) ProcessingResult
+
+    class AuthorizationService {
+        <<Receiver>>
+        +authenticate()
     }
-    class SubscribePacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class UnsubscribePacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
+
+    %% --- Relationships ---
     
-    MqttPacketHandler --> PacketHandler
-    ConnectPacketHandler ..|> PacketHandler
-    DisconnectPacketHandler ..|> PacketHandler
-    PublishPacketHandler ..|> PacketHandler
-    SubscribePacketHandler ..|> PacketHandler
-    UnsubscribePacketHandler ..|> PacketHandler
+    %% Client configures Concrete Command with Receivers
+    Client ..> ConnectPacketHandler : creates & configures
+    Client ..> SessionManager : creates
+    Client ..> AuthorizationService : creates
+    
+    %% Client passes Command to Invoker
+    Client --> MqttPacketHandler : configures
+
+    %% Invoker calls Command
+    MqttPacketHandler o--> PacketHandler : calls
+    
+    %% Concrete Command implements Interface
+    ConnectPacketHandler ..|> PacketHandler : implements
+
+    %% Concrete Command delegates to Receivers
+    ConnectPacketHandler --> SessionManager : delegates to
+    ConnectPacketHandler --> AuthorizationService : delegates to
 ```
 
-**Continuation...**:
-
-```mermaid
-classDiagram
-    class MqttPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class PacketHandler {
-        <<interface>>
-        +handle(channel, packet) ProcessingResult
-    }
-    class PingReqPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class PubAckPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class PubCompPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class PubRecPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    class PubRelPacketHandler {
-        +handle(channel, packet) ProcessingResult
-    }
-    
-    MqttPacketHandler --> PacketHandler
-
-    PingReqPacketHandler ..|> PacketHandler
-    PubAckPacketHandler ..|> PacketHandler
-    PubCompPacketHandler ..|> PacketHandler
-    PubRecPacketHandler ..|> PacketHandler
-    PubRelPacketHandler ..|> PacketHandler
-
-```
-
-**Trade-offs**:
-
-- **Class Explosion**: Requires a separate class for every command (packet type), leading to a large number of files.
-- **Indirection**: Adds a layer of abstraction that might seem overkill for simple commands.
+**Pros & Cons**:
+*   **Pros**:
+    *   **Open/Closed Principle**: New packet types (e.g., for MQTT 5.0) can be added by creating a new `PacketHandler` implementation without modifying existing logic.
+    *   **Single Responsibility**: Each handler class focuses solely on one specific packet type's logic.
+*   **Cons**:
+    *   **Class Explosion**: Each operation requires a separate class, increasing the total file count significantly.
+    *   **Object Overhead**: Creating a command object (or maintaining singletons) adds a layer of abstraction compared to a direct method call.
 
 ### D. Chain of Responsibility Pattern (Pipeline)
 
 **Location**:
 
-- **Chain Interface**: `src/main/java/com/mqtt/broker/interceptor/Interceptor.java`
-- **Base Handler**: `src/main/java/com/mqtt/broker/interceptor/ChainablePacketInterceptor.java`
-- **Pipeline Manager**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
-- **Concrete Handlers**: `ResponseSendingInterceptor`, `EventPublishingInterceptor`, `ClientActivityInterceptor`,
+- **Handler Interface (`Handler`)**: `src/main/java/com/mqtt/broker/pipeline/interceptor/Interceptor.java`
+- **Base Handler (`BaseHandler`)**: `src/main/java/com/mqtt/broker/pipeline/interceptor/ChainablePacketInterceptor.java`
+- **Pipeline Manager / Client**: `src/main/java/com/mqtt/broker/pipeline/PacketProcessingPipeline.java`
+- **Concrete Handlers (`ConcreteHandler`)**: `ResponseSendingInterceptor`, `EventPublishingInterceptor`, `ClientActivityInterceptor`,
   `PacketAuthorizationInterceptor`, `PacketHandlingInterceptor`
 
-**Justification**:
-The broker requires multiple independent processing steps for every packet: Response Sending -> Event Publishing ->
-Activity Tracking -> Authorization -> Handling.
+**Motivation (Dynamic Processing Pipeline)**:
+The Chain of Responsibility pattern creates a sequential processing pipeline where each component has the opportunity to process a request or pass it to the next handler.
+- **Problem**: Hardcoding the order of operations (Auth -> RateLimit -> Audit -> Process) inside a single method results in rigid, unmaintainable code. Reordering or adding steps requires modifying the core logic.
+- **Solution**: We decompose the processing steps into independent **Interceptors**. Each interceptor focuses on a single task (e.g., "Authorize Packet"). A **Base Handler** manages the linkage between them. The **Client** composes these handlers into a runtime chain.
 
-- **Problem**: Hardcoding these calls in the `Broker` creates strong coupling. Some steps are "wrappers" (side-effects
-  like sending response) while others are "filters" (auth, handling).
-- **Solution**: We implement a processing pipeline.
-    - **Wrappers** (`ResponseSendingInterceptor`, `EventPublishingInterceptor`) implement `Interceptor` directly and
-      wrap the execution of the rest of the chain, acting on the return value (Result).
-    - **Filters** (`PacketHandlingInterceptor`) extend `ChainablePacketInterceptor` and focus on processing logic,
-      potentially short-circuiting the chain.
+**Implementation Details**:
+1.  **Handler Interface**: The `Interceptor` interface defines the `intercept(channel, packet)` method and the `setNext()` method.
+2.  **Base Handler**: `ChainablePacketInterceptor` implements the boilerplate "pass-through" logic:
+    ```java
+    // Boilerplate logic in Base Handler
+    if (result.isPresent()) return result.get();
+    if (next != null) return next.intercept(channel, packet);
+    return ProcessingResult.empty();
+    ```
+3.  **Concrete Handlers**: Classes like `PacketAuthorizationInterceptor` extend the base handler. They perform specific checks. If a check fails (e.g., unauthorized), they return a result immediately (short-circuiting). If it passes, they return `Optional.empty()`, causing the Base Handler to delegate to the `next` interceptor.
+4.  **Client Composition**: The `Pipeline.Builder` dynamically links these interceptors at startup, allowing us to easy reconfigure the pipeline order in `BrokerBuilder`.
 
-**Diagram**:
+
 
 ```mermaid
 classDiagram
-    class Interceptor {
-        <<interface>>
-        +intercept(channel, packet)
-        +setNext(next)
-    }
-    class ChainablePacketInterceptor {
-        #process(channel, packet)
-    }
+    %% --- Core Components ---
     class PacketProcessingPipeline {
+        <<Context>>
         -Interceptor head
         +process(channel, packet)
     }
+
+    class Interceptor {
+        <<Interface>>
+        <<Handler>>
+        +setNext(Interceptor next)
+        +intercept(channel, packet)
+    }
+
+    class ChainablePacketInterceptor {
+        <<Abstract>>
+        <<BaseHandler>>
+        -Interceptor next
+        +setNext(Interceptor next)
+        +intercept(channel, packet)
+        #process(channel, packet)*
+    }
+
+    %% --- Direct Implementations (Wrappers) ---
+    class ResponseSendingInterceptor {
+        <<ConcreteHandler>>
+        +intercept(channel, packet)
+    }
+    class EventPublishingInterceptor {
+        <<ConcreteHandler>>
+        +intercept(channel, packet)
+    }
+
+    %% --- Chainable Implementations (Filters) ---
+    class ClientActivityInterceptor {
+        <<ConcreteHandler>>
+        +process(channel, packet)
+    }
+    class PacketAuthorizationInterceptor {
+        <<ConcreteHandler>>
+        +process(channel, packet)
+    }
+    class PacketHandlingInterceptor {
+        <<ConcreteHandler>>
+        +process(channel, packet)
+    }
+
+    %% --- Relationships ---
     
-    Interceptor <|.. ChainablePacketInterceptor
-    Interceptor <|.. ResponseSendingInterceptor
-    Interceptor <|.. EventPublishingInterceptor
+    %% Context Delegates
+    PacketProcessingPipeline o--> Interceptor : delegates to head
+
+    %% Interface Realization
+    Interceptor <|.. ChainablePacketInterceptor : implements
+    Interceptor <|.. ResponseSendingInterceptor : implements
+    Interceptor <|.. EventPublishingInterceptor : implements
+
+    %% Inheritance (Base Implementation)
+    ChainablePacketInterceptor <|-- ClientActivityInterceptor : extends
+    ChainablePacketInterceptor <|-- PacketAuthorizationInterceptor : extends
+    ChainablePacketInterceptor <|-- PacketHandlingInterceptor : extends
     
-    ChainablePacketInterceptor <|-- ClientActivityInterceptor
-    ChainablePacketInterceptor <|-- PacketAuthorizationInterceptor
-    ChainablePacketInterceptor <|-- PacketHandlingInterceptor
-    
-    PacketProcessingPipeline --> Interceptor : delegates to head
+    %% Chain Linkage
+    ChainablePacketInterceptor o--> Interceptor : next
 ```
 
-**Trade-offs**:
-
-- **Performance Overhead**: Passing a request down a long chain involves many method calls.
-- **Order Dependency**: The pipeline relies heavily on the correct order of interceptors (e.g., Auth must come before
-  Handling).
-- **Debugging**: It can be difficult to pinpoint which interceptor stopped the chain or modified the request.
+**Pros & Cons**:
+*   **Pros**:
+    *   **Dynamic Reordering**: The processing order is defined by the configuration (Builder), not the code structure.
+    *   **Single Responsibility**: Each interceptor does one thing well (e.g., Auth, Logging).
+    *   **Decoupling**: The sender (Broker) does not know which handler will process the request.
+*   **Cons**:
+    *   **Performance Overhead**: Passing a request down a long chain involves many method calls.
+    *   **Silent Failures**: If the chain isn't configured correctly, requests might be dropped.
+    *   **Debugging Complexity**: Hard to trace the exact path of a packet through dynamic layers.
 
 ### E. Builder Pattern
 
 **Location**:
 
-- **Broker Construction**: `src/main/java/com/mqtt/broker/BrokerBuilder.java`
-- **Event System**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java`
-- **Pipeline**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java`
+- **Broker Builder**: `src/main/java/com/mqtt/broker/BrokerBuilder.java`
+- **Pipeline Builder**: `src/main/java/com/mqtt/broker/interceptor/PacketProcessingPipeline.java` ($Builder)
+- **Event Publisher Builder**: `src/main/java/com/mqtt/broker/event/BrokerEventPublisher.java` ($Builder)
 
-**Justification**:
-Complex objects like the `Broker` or the processing `Pipeline` have many optional dependencies or configuration steps.
+**Motivation (Construction Complexity)**:
+The Builder Pattern separates the construction of a complex object from its representation, allowing the same construction process to create different representations.
+- **Problem**: Validating and initializing a `Broker` requires coordinating 7+ dependencies (Context, Selector, Pipeline, etc.). A "Telescoping Constructor" (many distinct constructor overloads) is unreadable and error-prone.
+- **Solution**: We use **Fluent Builders**. The Client (Main class) acts as the **Director**, configuring the steps. The **Builder** ensures the final **Product** is in a valid state (no missing dependencies) before instantiation.
 
-- **Problem**: Using a constructor with many parameters (Telescoping Constructor Anti-pattern) is unreadable and
-  error-prone. Passing `null` for optional dependencies is confusing.
-- **Solution**: We use the Builder pattern to construct these objects step-by-step. This provides a fluent API, allows
-  for sensible defaults (e.g., default `MqttPacketDecoder`), and ensures the final object is fully initialized and
-  immutable where possible.
+**Implementation Variations**:
+Our project employs three distinct variations of the pattern:
 
-**Diagram**:
-
-```mermaid
-classDiagram
-    class PacketProcessingPipeline {
-        -Interceptor head
-        +process(channel, packet)
-    }
-    class Builder {
-        -Interceptor head
-        -Interceptor tail
-        +addInterceptor(interceptor)
-        +build()
-    }
-    
-    PacketProcessingPipeline ..> Builder : created by
-    Builder ..> PacketProcessingPipeline : builds
-```
+#### 1. Broker Initialization (Standard Builder)
+The `BrokerBuilder` constructs the singleton `Broker` instance by wiring together all the other services.
 
 ```mermaid
 classDiagram
-    class Broker {
-        -BrokerContext context
-        -EventPublisher eventPublisher
-        -Pipeline pipeline
-        +start()
+    %% --- Participants ---
+    class Main {
+        <<Client/Director>>
+        +main()
     }
+
     class BrokerBuilder {
+        <<ConcreteBuilder>>
         -BrokerConfiguration config
-        -EventPublisher eventPublisher
         -Pipeline pipeline
         +config(config)
         +pipeline(pipeline)
-        +build()
+        +build() Broker
     }
-    
-    Broker ..> BrokerBuilder : created by
-    BrokerBuilder ..> Broker : builds
+
+    class Broker {
+        <<Product>>
+        -BrokerContext context
+        -Pipeline pipeline
+        +start()
+    }
+
+    %% --- Relationships ---
+    Main ..> BrokerBuilder : configures
+    BrokerBuilder ..> Broker : constructs
+    Main --> Broker : uses
 ```
 
-**Trade-offs**:
+#### 2. Pipeline Assembly (Chain Builder)
+The `PacketProcessingPipeline.Builder` is specialized for constructing a linked structure (Chain of Responsibility). It handles the complexity of linking `head` and `tail` pointers.
 
-- **Verbosity**: Requires creating a separate inner static class or external builder class, doubling the lines of code
-  for that type.
-- **Duplicate Fields**: The Builder usually mirrors the fields of the target class, leading to duplication.
+```mermaid
+classDiagram
+    %% --- Participants ---
+    class BrokerBuilder {
+        <<Client>>
+        +build()
+    }
+
+    class PipelineBuilder {
+        <<ConcreteBuilder>>
+        -Interceptor head
+        -Interceptor tail
+        +addInterceptor(Interceptor)
+        +build() PacketProcessingPipeline
+    }
+
+    class PacketProcessingPipeline {
+        <<Product>>
+        -Interceptor head
+        +process(channel, packet)
+    }
+
+    %% --- Relationships ---
+    BrokerBuilder ..> PipelineBuilder : configures
+    PipelineBuilder ..> PacketProcessingPipeline : constructs
+    BrokerBuilder --> PacketProcessingPipeline : uses
+```
+
+#### 3. Event Publisher Registry (Collection Builder)
+The `BrokerEventPublisher.Builder` aggregates a collection of listeners before sealing them into an immutable list in the final product.
+
+```mermaid
+classDiagram
+    %% --- Participants ---
+    class EventPublisherBuilder {
+        <<ConcreteBuilder>>
+        -List~EventListener~ listeners
+        +addListener(EventListener)
+        +build() BrokerEventPublisher
+    }
+
+    class BrokerEventPublisher {
+        <<Product>>
+        -List~EventListener~ listeners
+        +publish(event)
+    }
+
+    class Main {
+        <<Client>>
+    }
+
+    %% --- Relationships ---
+    Main ..> EventPublisherBuilder : adds listeners
+    EventPublisherBuilder ..> BrokerEventPublisher : constructs
+```
+
+**Pros & Cons**:
+*   **Pros**:
+    *   **Immutability**: Products (`Broker`, `Pipeline`) can be immutable once built, as all setup happens in the builder.
+    *   **Readability**: Fluent APIs (`.config().pipeline().build()`) read like natural language.
+    *   **Validation**: The `build()` method acts as a gateway to check for missing required fields (e.g., throwing `IllegalStateException`).
+*   **Cons**:
+    *   **Code duplication**: Requires mirroring fields between the Builder and the Product classes.
+    *   **Verbosity**: Increases the codebase size for objects that might otherwise be simple POJOs.
 
 ## 4. Visual Diagrams (UML)
 
@@ -458,6 +701,52 @@ This diagram highlights the relationship between the central Broker, the network
 components.
 
 ```mermaid
+classDiagram
+    %% Core Broker Components
+    class Broker {
+        -BrokerContext context
+        -ServerListener serverListener
+        -Pipeline pipeline
+        -EventPublisher eventPublisher
+        +start()
+        +stop()
+    }
+
+    class ServerListener {
+        -Selector selector
+        -Map~SocketChannel,ClientConnection~ connections
+        +setup()
+        +run()
+    }
+
+    class PacketProcessingPipeline {
+        -Interceptor head
+        +process(channel, packet)
+    }
+
+    class BrokerEventPublisher {
+        -List~EventListener~ listeners
+        +publish(event)
+    }
+
+    class AuthorizationService {
+        -AuthorizationStrategy strategy
+        +authenticate(packet)
+    }
+
+    class SessionManager {
+        -SessionPersistenceStrategy strategy
+        +getSession(clientId)
+    }
+
+    %% Relationships
+    Broker *-- ServerListener : manages
+    Broker *-- PacketProcessingPipeline : uses
+    Broker *-- BrokerEventPublisher : uses
+    Broker *-- AuthorizationService : uses
+    Broker *-- SessionManager : uses
+
+    ServerListener --> PacketProcessingPipeline : delegates packets
 ```
 
 ### B. Sequence Diagram: Client Connection Flow
@@ -465,6 +754,38 @@ components.
 This diagram illustrates the interaction between components when a client connects.
 
 ```mermaid
+sequenceDiagram
+    participant Client
+    participant ServerListener
+    participant Decoder
+    participant Pipeline
+    participant ConnectHandler
+    participant AuthService
+    participant SessionManager
+    participant Encoder
+
+    Client->>ServerListener: Connect (TCP)
+    ServerListener->>ServerListener: Accept Connection
+    Client->>ServerListener: CONNECT Packet (Bytes)
+    ServerListener->>Decoder: Decode(ByteBuffer)
+    Decoder-->>ServerListener: ConnectPacket POJO
+    
+    ServerListener->>Pipeline: process(packet)
+    Pipeline->>ConnectHandler: handle(packet)
+    
+    ConnectHandler->>AuthService: authenticate(packet)
+    alt Authorized
+        AuthService-->>ConnectHandler: true
+        ConnectHandler->>SessionManager: getOrCreateSession(clientId)
+        SessionManager-->>ConnectHandler: Session
+        ConnectHandler-->>Encoder: CONNACK (Success)
+        Encoder-->>Client: Send CONNACK
+    else Unauthorized
+        AuthService-->>ConnectHandler: false
+        ConnectHandler-->>Encoder: CONNACK (Refused)
+        Encoder-->>Client: Send CONNACK
+        ServerListener->>ServerListener: Close Connection
+    end
 ```
 
 ### C. Activity Diagram: Packet Processing Pipeline
@@ -472,6 +793,23 @@ This diagram illustrates the interaction between components when a client connec
 The lifecycle of an incoming packet from network read to response.
 
 ```mermaid
+graph TD
+    Start([Start Packet Processing]) --> Auth{Filter: Authorized?}
+    
+    Auth -- No --> Deny[Disconnect Client]
+    Auth -- Yes --> RateLimit{Filter: Rate Limit?}
+    
+    RateLimit -- Exceeded --> Throttle[Delay/Drop]
+    RateLimit -- OK --> Log[Action: Log Activity]
+    
+    Log --> Handle[Handler: Execute Business Logic]
+    
+    Handle --> Response{Requires Response?}
+    Response -- Yes --> Encode[Encode Response]
+    Encode --> Send[Send to Network]
+    Response -- No --> Finish
+    
+    Send --> Finish([End])
 ```
 
 ## 5. Configuration & Persistence
