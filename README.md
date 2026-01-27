@@ -310,8 +310,6 @@ The system employs a synchronous, explicitly modeled Observer implementation:
 1.  **Subject Definition**: The `BrokerEventPublisher` maintains a registry (`List<EventListener>`) of active subscribers using **Aggregation**.
 2.  **Subscription Mechanism**: During application bootstrap, dependent components register themselves via the `addListener()` method.
 3.  **Synchronous Dispatch**: When a `publish(event)` call is triggered, the Subject iterates sequentially through its registry. It invokes the `onEvent(event)` method on each listener, passing the immutable `BrokerEvent` context.
-    *   *Note*: This implementation is **synchronous**, meaning the publisher blocks until all listeners complete. This ensures data consistency but requires listeners to be non-blocking I/O safe.
-
 
 ```mermaid
 classDiagram
