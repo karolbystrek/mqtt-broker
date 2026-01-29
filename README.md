@@ -17,27 +17,29 @@ communication between various IoT clients.
 * **Clients**: Accepts connections from any MQTT 3.1.1 compliant client (Sensors, Mobile Apps, Dashboards).
 
 ```mermaid
+---
+title: Laptop / Development Machine
+---
 graph TD
-    subgraph Clients
-        C1[IoT Sensor Node]
-        C2[Mobile Application]
-        C3[Dashboard / Analytics]
-    end
+    
+    subgraph -
 
-    subgraph Network
-        TCP[TCP/IP Network]
+        subgraph Docker["Docker Container"]
+            Broker["MQTT Broker<br/>(Java Process)<br/>Port: 1883"]
+        end
+        
+        Demo["MQTT Client<br/>(mqttx/demo app)<br/>localhost:1883"]
+        Config["config.yaml<br/>users.json<br/>sessions.json"]
+        
+        Demo -->|"MQTT over TCP"| Broker
+        Broker -.->|"Read/Write"| Config
     end
+    
+ 
+    style Docker fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Broker fill:#4caf50,stroke:#2e7d32,stroke-width:2px,color:#fff
+    style Demo fill:#ff9800,stroke:#e65100,stroke-width:2px
 
-    subgraph Server_Node
-        Broker[MQTT Broker Process]
-        Store[File Persistence JSON]
-    end
-
-    C1 -->|MQTT over TCP :1883| TCP
-    C2 -->|MQTT over TCP :1883| TCP
-    C3 -->|MQTT over TCP :1883| TCP
-    TCP --> Broker
-    Broker -->|Read/Write| Store
 ```
 
 ## 2. Logical Architecture
@@ -171,30 +173,39 @@ The **Context** (`AuthorizationService`) delegates to this interface. It treats 
 
 ```mermaid
 classDiagram
+    direction LR
     %% Context
     class AuthorizationService {
+        -AuthorizationStrategy strategy
         +authenticate(ConnectPacket)
         +canSubscribe(username, topic)
+        +canPublish(username, topic)
     }
 
     %% Interface
     class AuthorizationStrategy {
         <<Interface>>
         +authenticate(ConnectPacket)
-        +canSubscribe(username, topic)
+        +canSubscribe(username, topicFilter)
+        +canPublish(username, topic)
     }
 
     %% Algorithm A: No-Op
     class PermissiveAuthorizationStrategy {
         <<Algorithm: O(1) No-Op>>
-        +authenticate() : true
+        +authenticate()
+        +canSubscribe(username, topicFilter)
+        +canPublish(username, topic)
     }
 
     %% Algorithm B: I/O Bound
     class FileBasedAuthorizationStrategy {
         <<Algorithm: JSON Parsing & Lookup>>
         -UserRegistry registry
-        +authenticate() : boolean
+        -AuthorizationRepository authorizationRepository
+        +authenticate()
+        +canSubscribe(username, topicFilter)
+        +canPublish(username, topic)
     }
 
     AuthorizationService o--> AuthorizationStrategy : Delegates
@@ -245,17 +256,22 @@ public interface SessionPersistenceStrategy {
 
 ```mermaid
 classDiagram
+    direction LR
     %% Context
     class SessionManager {
         -SessionPersistenceStrategy persistenceStrategy
+        +getActiveSessions()
+        +registerSession(SocketChannel channel, Session session)
+        +closeSession(SocketChannel channel)
+        +getPersistentSession(String clientId)
+        +removePersistentSession(String clientId)
         +persistSessions()
-        +registerSession()
     }
 
     %% Interface
     class SessionPersistenceStrategy {
         <<Interface>>
-        +save(Collection~Session~)
+        +save(Collection~Session~ sessions)
         +load() Map~String, Session~
     }
 
@@ -269,13 +285,14 @@ classDiagram
     class FileSessionPersistenceStrategy {
         <<Algorithm: JSON Serialization>>
         -ObjectMapper mapper
+        -File file
         +save()
         +load()
     }
 
-    SessionManager o--> SessionPersistenceStrategy : Delegates
-    NoOpSessionPersistenceStrategy ..|> SessionPersistenceStrategy
-    FileSessionPersistenceStrategy ..|> SessionPersistenceStrategy
+    SessionManager o--> SessionPersistenceStrategy : delegates
+    NoOpSessionPersistenceStrategy ..|> SessionPersistenceStrategy : implements
+    FileSessionPersistenceStrategy ..|> SessionPersistenceStrategy : implements
 ```
 
 **Pros & Cons (General)**:
@@ -313,6 +330,7 @@ The system employs a synchronous, explicitly modeled Observer implementation:
 
 ```mermaid
 classDiagram
+    
     %% --- Interfaces ---
     class EventPublisher {
         <<Interface>>
@@ -334,22 +352,31 @@ classDiagram
 
     class ConnectionEventListener {
         <<Concrete Observer>>
+        -BrokerContext context
         +onEvent(BrokerEvent event)
     }
     class DeliveryEventListener {
         <<Concrete Observer>>
+        -BrokerContext context
         +onEvent(BrokerEvent event)
     }
     class SubscriptionEventListener {
         <<Concrete Observer>>
+        -BrokerContext context
         +onEvent(BrokerEvent event)
     }
 
     %% --- Event Object ---
     class BrokerEvent {
-        <<Event Object>>
-        +long timestamp
-        +Session session
+        <<Abstract Class>>
+    }
+    namespace BrokerEvents {
+        
+        class ClientConnectedEvent {<<Record>>}
+        class ClientSubscribedEvent {<<Record>>}
+        class CloseConnectionEvent {<<Record>>}
+        class PublishEvent {<<Record>>}
+        class ConnectionLostEvent {<<Record>>}
     }
 
     %% --- Relationships with explicit labels ---
@@ -359,6 +386,13 @@ classDiagram
     EventListener <|.. ConnectionEventListener : implements
     EventListener <|.. DeliveryEventListener : implements
     EventListener <|.. SubscriptionEventListener : implements
+
+
+    ClientConnectedEvent <|.. BrokerEvent : implements
+    ClientSubscribedEvent <|.. BrokerEvent
+    CloseConnectionEvent <|.. BrokerEvent
+    PublishEvent <|.. BrokerEvent
+    ConnectionLostEvent <|.. BrokerEvent
 
     %% Aggregation (Has-a list of)
     BrokerEventPublisher o--> "0..*" EventListener : maintains registry
@@ -401,13 +435,22 @@ The Command Pattern allows us to turn a request (a network packet) into a stand-
 3.  **Invoker Execution**: `MqttPacketHandler` stores a map (or fields) of these commands. When a packet arrives, it delegates execution: `handler.handle(channel, packet)`.
 
 
+
 ```mermaid
 classDiagram
-    %% --- Participants ---
-    class Client {
+
+    class PacketHandlingInterceptor {
         <<Client>>
-        +main()
+
     }
+    namespace ConcreteCommands {
+        class ConnectPacketHandler
+        class DisconnectPacketHandler
+        class PublishPacketHandler
+        class SubscribePacketHandler
+        class UnsubscribePacketHandler
+    }
+
 
     class MqttPacketHandler {
         <<Invoker>>
@@ -422,31 +465,40 @@ classDiagram
     }
 
     class ConnectPacketHandler {
-        <<Concrete Command>>
-        -SessionManager sessionManager
-        -AuthorizationService authService
+        -BrokerContext context
         +handle(MqttPacket packet)
     }
 
-    class SessionManager {
-        <<Receiver>>
-        +registerSession()
+    class DisconnectPacketHandler {
+        -BrokerContext context
+        +handle(MqttPacket packet)
     }
 
-    class AuthorizationService {
-        <<Receiver>>
-        +authenticate()
+    class PublishPacketHandler {
+        -BrokerContext context
+        +handle(MqttPacket packet)
     }
 
-    %% --- Relationships ---
-    
-    %% Client configures Concrete Command with Receivers
-    Client ..> ConnectPacketHandler : creates & configures
-    Client ..> SessionManager : creates
-    Client ..> AuthorizationService : creates
-    
+    class SubscribePacketHandler {
+        -BrokerContext context
+        +handle(MqttPacket packet)
+
+    }
+
+    class UnsubscribePacketHandler {
+        -BrokerContext context
+        +handle(MqttPacket packet)
+    }
+
+    class BrokerContext {
+        <<Receiver>>
+        +getSessionManager()
+        +getSubscriptionRepository()
+        +getAuthorizationService()
+    }
+
     %% Client passes Command to Invoker
-    Client --> MqttPacketHandler : configures
+    PacketHandlingInterceptor --> MqttPacketHandler : configures
 
     %% Invoker calls Command
     MqttPacketHandler o--> PacketHandler : calls
@@ -455,8 +507,97 @@ classDiagram
     ConnectPacketHandler ..|> PacketHandler : implements
 
     %% Concrete Command delegates to Receivers
-    ConnectPacketHandler --> SessionManager : delegates to
-    ConnectPacketHandler --> AuthorizationService : delegates to
+    ConnectPacketHandler --> BrokerContext : delegates to  
+
+    DisconnectPacketHandler ..|> PacketHandler
+    DisconnectPacketHandler --> BrokerContext
+
+    PublishPacketHandler ..|> PacketHandler
+    PublishPacketHandler --> BrokerContext
+
+    SubscribePacketHandler ..|> PacketHandler
+    SubscribePacketHandler --> BrokerContext
+
+    UnsubscribePacketHandler ..|> PacketHandler
+    UnsubscribePacketHandler --> BrokerContext
+
+```
+
+---
+
+```mermaid
+classDiagram
+
+    class PacketHandlingInterceptor {
+        <<Client>>
+
+    }
+        namespace ConcreteCommands {
+        class PingReqPacketHandler
+        class PubAckPacketHandler
+        class PubRecPacketHandler
+        class PubRelPacketHandler
+        class PubCompPacketHandler
+    }
+
+    class MqttPacketHandler {
+        <<Invoker>>
+        -Map~Type, PacketHandler~ commands
+        +handle(MqttPacket packet)
+    }
+
+    class PacketHandler {
+        <<Interface>>
+        <<Command>>
+        +handle(MqttPacket packet)
+    }
+
+    class PingReqPacketHandler {
+        +handle(MqttPacket packet)
+    }
+
+    class PubAckPacketHandler {
+        +handle(MqttPacket packet)
+    }
+
+    class PubRecPacketHandler {
+        +handle(MqttPacket packet)
+    }
+
+    class PubRelPacketHandler {
+        -BrokerContext context
+        +handle(MqttPacket packet)
+
+    }
+
+    class PubCompPacketHandler {
+        +handle(MqttPacket packet)
+    }
+
+    class BrokerContext {
+        <<Receiver>>
+        +getSessionManager()
+        +getSubscriptionRepository()
+        +getAuthorizationService()
+    }
+
+    %% Client passes Command to Invoker
+    PacketHandlingInterceptor --> MqttPacketHandler : configures
+
+    %% Invoker calls Command
+    MqttPacketHandler o--> PacketHandler : calls
+    
+    %% Concrete Command implements Interface
+    PingReqPacketHandler ..|> PacketHandler : implements
+
+    %% Concrete Command delegates to Receivers
+    PubAckPacketHandler ..|> PacketHandler
+    PubRecPacketHandler ..|> PacketHandler
+    PubRelPacketHandler ..|> PacketHandler
+    PubRelPacketHandler --> BrokerContext : delegates to  
+    PubCompPacketHandler ..|> PacketHandler
+  
+
 ```
 
 **Pros & Cons**:
@@ -534,14 +675,17 @@ classDiagram
     %% --- Chainable Implementations (Filters) ---
     class ClientActivityInterceptor {
         <<ConcreteHandler>>
+        -BrokerContext context
         +process(channel, packet)
     }
     class PacketAuthorizationInterceptor {
         <<ConcreteHandler>>
+        -BrokerContext context
         +process(channel, packet)
     }
     class PacketHandlingInterceptor {
         <<ConcreteHandler>>
+        -MqttPacketHandler packetHandler
         +process(channel, packet)
     }
 
@@ -563,6 +707,10 @@ classDiagram
     %% Chain Linkage
     ChainablePacketInterceptor o--> Interceptor : next
 ```
+
+---
+
+
 
 **Pros & Cons**:
 *   **Pros**:
@@ -698,55 +846,237 @@ classDiagram
 This diagram highlights the relationship between the central Broker, the networking layer, and the core processing
 components.
 
+
+---
 ```mermaid
 classDiagram
-    %% Core Broker Components
+    direction TB
+    
+    %% === MAIN CORE ===
     class Broker {
+        <<Main Coordinator>>
         -BrokerContext context
-        -ServerListener serverListener
-        -Pipeline pipeline
+        -Selector selector
+        -ServerSocketChannel serverChannel
+        -ProtocolDecoder packetDecoder
         -EventPublisher eventPublisher
+        -ServerListener serverListener
+        -ExecutorService packetExecutor
+        -Pipeline pipeline
+        -Map~SocketChannel,ClientConnection~ connections
         +start()
         +stop()
+        -handleRead(SelectionKey)
+        -checkKeepAliveTimeouts()
+        -cleanupClient(SelectionKey)
     }
 
+    %% === CONTEXT & CONFIGURATION ===
+    class BrokerContext {
+        <<Service Container>>
+        -BrokerConfiguration config
+        -AuthorizationService authorizationService
+        -SessionManager sessionManager
+        -SubscriptionRepository subscriptionRepository
+        -MessageDeliveryService messageDeliveryService
+        +getAuthorizationService()
+        +getSessionManager()
+        +getSubscriptionRepository()
+        +getMessageDeliveryService()
+    }
+
+    class BrokerConfiguration {
+        <<Configuration>>
+        -String host
+        -int port
+        -boolean allowAnonymous
+        -boolean cleanSession
+        +getHost()
+        +getPort()
+        +isAllowAnonymous()
+        +isCleanSession()
+    }
+
+    %% === NETWORK LAYER ===
     class ServerListener {
+        <<Network Handler>>
         -Selector selector
+        -BrokerConfiguration config
         -Map~SocketChannel,ClientConnection~ connections
-        +setup()
-        +run()
+        +setup() ServerSocketChannel
+        +accept(SelectionKey)
+    }
+
+    class ClientConnection {
+        <<Connection State>>
+        -SocketChannel channel
+        -ByteBuffer buffer
+        -long lastActivity
+        +read() int
+        +write(ByteBuffer)
+        +getBuffer()
+        +updateLastActivity()
+    }
+
+    %% === PROTOCOL LAYER ===
+    class ProtocolDecoder {
+        <<Interface>>
+        +decode(ByteBuffer) MqttPacket
+    }
+
+    class MqttPacketDecoder {
+        <<Decoder Implementation>>
+        +decode(ByteBuffer) MqttPacket
+        -decodeFixedHeader(ByteBuffer)
+        -decodeVariableHeader(ByteBuffer)
+        -decodePayload(ByteBuffer)
+    }
+
+    %% === PIPELINE & INTERCEPTORS ===
+    class Pipeline {
+        <<Interface>>
+        +process(SocketChannel, MqttPacket)
     }
 
     class PacketProcessingPipeline {
+        <<Pipeline Implementation>>
         -Interceptor head
-        +process(channel, packet)
+        +process(SocketChannel, MqttPacket) ProcessingResult
+        +Builder builder()
     }
 
-    class BrokerEventPublisher {
-        -List~EventListener~ listeners
-        +publish(event)
+    class Interceptor {
+        <<Interface>>
+        +setNext(Interceptor)
+        +intercept(SocketChannel, MqttPacket) ProcessingResult
     }
 
+    %% === BUSINESS LOGIC LAYER ===
     class AuthorizationService {
+        <<Security>>
         -AuthorizationStrategy strategy
-        +authenticate(packet)
+        +authenticate(ConnectPacket) boolean
+        +canSubscribe(String, String) boolean
+        +canPublish(String, String) boolean
     }
 
     class SessionManager {
-        -SessionPersistenceStrategy strategy
-        +getSession(clientId)
+        <<Session Management>>
+        -Map~SocketChannel,Session~ activeSessions
+        -Map~String,Session~ persistentSessions
+        -SubscriptionRepository subscriptionRepository
+        -SessionPersistenceStrategy persistenceStrategy
+        +registerSession(SocketChannel, Session)
+        +getSession(SocketChannel) Session
+        +closeSession(SocketChannel)
+        +persistSessions()
     }
 
-    %% Relationships
+    class SubscriptionRepository {
+        <<Topic Subscriptions>>
+        +add(clientId, topic)
+        +remove(clientId, topic)
+        +match(topic) List~String~
+    }
+
+    class MessageDeliveryService {
+        <<Message Distribution>>
+        +send(SocketChannel, MqttPacket)
+        +publish(MqttPacket)
+        +dispatchPendingMessages(SocketChannel, Session)
+    }
+
+    %% === EVENT SYSTEM ===
+    class EventPublisher {
+        <<Interface>>
+        +publish(BrokerEvent)
+    }
+
+    class BrokerEventPublisher {
+        <<Event Bus>>
+        -List~EventListener~ listeners
+        +publish(BrokerEvent)
+        +Builder builder()
+    }
+
+    class EventListener {
+        <<Interface>>
+        +onEvent(BrokerEvent)
+    }
+
+    %% === NIO COMPONENTS ===
+    class Selector {
+        <<NIO>>
+        -Java NIO Selector
+    }
+
+    class ServerSocketChannel {
+        <<NIO>>
+        -Java NIO ServerSocketChannel
+    }
+
+    class SocketChannel {
+        <<NIO>>
+        -Java NIO SocketChannel
+    }
+
+    %% === CONCURRENCY ===
+    class ExecutorService {
+        <<Thread Pool>>
+        -Virtual Thread Pool
+    }
+
+    %% === RELATIONSHIPS: Broker ===
+    Broker *-- BrokerContext : contains
     Broker *-- ServerListener : manages
     Broker *-- PacketProcessingPipeline : uses
     Broker *-- BrokerEventPublisher : uses
-    Broker *-- AuthorizationService : uses
-    Broker *-- SessionManager : uses
+    Broker *-- ProtocolDecoder : owns
+    Broker *-- Selector : owns
+    Broker *-- ServerSocketChannel : owns
+    Broker *-- ExecutorService : owns
+    Broker o-- "0..*" ClientConnection : tracks
 
-    ServerListener --> PacketProcessingPipeline : delegates packets
+    %% === RELATIONSHIPS: BrokerContext ===
+    BrokerContext *-- BrokerConfiguration : holds
+    BrokerContext *-- AuthorizationService : provides
+    BrokerContext *-- SessionManager : provides
+    BrokerContext *-- SubscriptionRepository : provides
+    BrokerContext *-- MessageDeliveryService : provides
+
+    %% === RELATIONSHIPS: ServerListener ===
+    ServerListener o-- "0..*" ClientConnection : creates
+    ServerListener --> PacketProcessingPipeline : delegates to
+
+    %% === RELATIONSHIPS: Protocol Decoding ===
+    ProtocolDecoder <|.. MqttPacketDecoder : implements
+    Broker --> ProtocolDecoder : uses
+
+    %% === RELATIONSHIPS: Pipeline ===
+    Pipeline <|.. PacketProcessingPipeline : implements
+    PacketProcessingPipeline o--> Interceptor : head
+
+    %% === RELATIONSHIPS: Business Logic ===
+    SessionManager --> SubscriptionRepository : queries
+    MessageDeliveryService --> SessionManager : uses
+    MessageDeliveryService --> SubscriptionRepository : uses
+
+    %% === RELATIONSHIPS: Events ===
+    EventPublisher <|.. BrokerEventPublisher : implements
+    BrokerEventPublisher o--> "0..*" EventListener : notifies
+    Broker --> EventPublisher : publishes to
+    ServerListener --> EventPublisher : publishes to
+
+    %% === RELATIONSHIPS: NIO ===
+    Broker --> Selector : manages
+    ServerListener --> Selector : uses
+    Selector o--> "0..*" SocketChannel : monitors
+
+    %% === RELATIONSHIPS: Execution ===
+    Broker --> ExecutorService : submits tasks
+    ExecutorService --> Interceptor : runs interceptors
 ```
-
+    
 ### B. Sequence Diagram: Client Connection Flow
 
 This diagram illustrates the interaction between components when a client connects.
@@ -786,28 +1116,78 @@ sequenceDiagram
     end
 ```
 
-### C. Activity Diagram: Packet Processing Pipeline
+### C. Activity Diagram: Packet Processing Lifecycle
 
-The lifecycle of an incoming packet from network read to response.
+The complete lifecycle of an incoming MQTT packet from network read to response.
 
 ```mermaid
 graph TD
-    Start([Start Packet Processing]) --> Auth{Filter: Authorized?}
     
-    Auth -- No --> Deny[Disconnect Client]
-    Auth -- Yes --> RateLimit{Filter: Rate Limit?}
+    Start([Network: Incoming Bytes]) --> Read["Handle Read Operation"]
     
-    RateLimit -- Exceeded --> Throttle[Delay/Drop]
-    RateLimit -- OK --> Log[Action: Log Activity]
+    Read --> Decode["Decode into MQTT Packet"]
     
-    Log --> Handle[Handler: Execute Business Logic]
+    Decode --> Submit["Virtual Thread Pool<br/>submits packet processing"]
     
-    Handle --> Response{Requires Response?}
-    Response -- Yes --> Encode[Encode Response]
-    Encode --> Send[Send to Network]
-    Response -- No --> Finish
+    Submit --> PipelineStart["Interceptor Chain begins"]
     
-    Send --> Finish([End])
+    PipelineStart --> Activity["Update session's lastActivity<br/>for Keep-Alive tracking"]
+    
+    Activity --> AuthCheck{"Authorized?"}
+    
+    AuthCheck -->|Unauthorized| AuthDeny["Return PUBACK/PUBREC<br/>with failure<br/>(short-circuit)"]
+
+    
+    AuthCheck -->|Authorized or N/A| Handler["Execute Business logic via<br/>BrokerContext services"]
+    
+    Handler --> ResultCheck{"Requieres Response?"}
+    
+    ResultCheck -->|Yes| Response["Encode and write to SocketChannel"]
+    ResultCheck -->|No| EventCheck
+    
+    Response --> EventCheck{"Has Event?"}
+    
+    EventCheck -->|Yes| Event["Notify all EventListeners"]
+    EventCheck -->|No| End
+    
+   
+    
+    AuthDeny --> Response
+    Event --> End([Processing Complete])
+    
+```
+
+### D. Activity Diagram: Retained Message Subscription
+
+This diagram shows how retained messages are delivered when a client subscribes to a topic.
+
+```mermaid
+graph TD
+    Start([Client sends SUBSCRIBE<br/>topicFilter...]) --> Decode["<b>Broker decodes SUBSCRIBE</b><br/>SubscribePacketHandler.handle()"]
+    
+    Decode --> Pipeline["<b>Pipeline processes packet</b><br/>Through interceptor chain"]
+    
+    Pipeline --> Subscribe["<b>SubscribePacketHandler</b><br/>• Validates authorization<br/>• Adds to SubscriptionRepository<br/>• Adds to Session.subscriptions<br/>• Creates ClientSubscribedEvent"]
+    
+    Subscribe --> SubAck["<b>MessageDeliveryService.send()</b><br/>Sends SUBACK packet to client"]
+    
+    SubAck --> Event["<b>SubscriptionEventListener.onEvent()</b><br/>Triggered by ClientSubscribedEvent<br/>for each granted topicFilter"]
+    
+    Event --> RetainedCheck{"<b>Check retained messages?</b><br/>RetainedMessageRepository<br/>.find(topicFilter)"}
+    
+    RetainedCheck -->|No matches| NoRetained["No retained messages<br/>to deliver"]
+    
+    RetainedCheck -->|Messages found| GetRetained["<b>Get retained messages</b><br/>via Trie matching algorithm<br/>Returns List of RetainedMessageWithTopic"]
+    
+    GetRetained --> ForEach["<b>For each retained message:</b><br/>• Build PublishPacket<br/>• Set Retain flag = 1<br/>• Use original QoS level<br/>• Use original payload"]
+    
+    ForEach --> SendRetained["<b>MessageDeliveryService.send()</b><br/>Sends PUBLISH packet with<br/>retained message to client"]
+    
+    SendRetained --> Merge{" "}
+    NoRetained --> Merge
+    
+    Merge --> End(["<b>End</b><br/>Client receives all retained<br/>messages matching subscription"])
+    
 ```
 
 ## 5. Configuration & Persistence
