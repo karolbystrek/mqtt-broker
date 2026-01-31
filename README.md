@@ -62,9 +62,10 @@ structured into distinct logical layers to ensure separation of concerns.
 
 ```mermaid
 graph TD
-    subgraph Network_Layer ["1. Network Layer (NIO)"]
-        Listener["ServerListener / Broker Loop"]
+    subgraph Network_Layer ["1. Network Layer"]
+        Broker["Broker"]
         Selector["Java NIO Selector"]
+        Listener["ServerListener"]
         Channel["SocketChannel"]
     end
 
@@ -80,50 +81,38 @@ graph TD
 
     subgraph Domain_Layer ["4. Domain / Business Layer"]
         Auth["Authorization Service"]
-        Topics["Topic Tree (Trie)"]
-        Sessions["Session Management"]
-    end
-
-    %% Data Flow Connections
-    Listener -- "Accepts Connection" --> Selector
-    Selector -- "Reads Raw Bytes" --> Channel
-    Channel -- "ByteBuffer" --> Decoder
-    Decoder -- "Decodes to" --> POJO
-    POJO -- "Passed to" --> Router
-    
-    Router -- "Validates User" --> Auth
-    Router -- "Matches/Stores" --> Topics
-    Router -- "Persists State" --> Sessions
-    
-    %% Response Flow
-    Router -. "Processing Result" .-> Encoder
-    Encoder -. "Encoded Bytes" .-> Channel
-```
-
-```mermaid
-graph TD
-    subgraph Core_System ["Core Processing"]
-        Handler["Packet Handlers"]
-        Connection["Connection Manager"]
+        Topics["Topic Tree"]
+        Sessions["Session Manager"]
     end
 
     subgraph Event_System ["5. Event System"]
         Bus["BrokerEventPublisher"]
-    end
-
-    subgraph Listeners ["Observers (Side Effects)"]
         Log["Logging Listener"]
         Metric["Metrics Collector"]
         Cleanup["Resource Cleanup"]
     end
 
-    %% Event Flow
-    Handler -- "Publishes Event" --> Bus
-    Connection -- "Publishes Event" --> Bus
+    %% Data Flow Connections
+    Broker -- "Runs a loop" --> Selector
+    Selector -- "Selects keys" --> Listener
+    Listener -- "Accepts Connection" --> Channel
     
+    Channel -- "ByteBuffer" --> Decoder
+    Decoder -- "Decoded bytes" --> POJO
+    POJO -- "Passed to" --> Router
+    
+    Router -- "Connect packet / Subscribe packet" --> Auth
+    Router -- "Topic" --> Topics
+    Router -- "Channel / Session / Client ID" --> Sessions
+
+    Router -- "Packet and Event" --> Bus
     Bus -- "Notify" --> Log
     Bus -- "Notify" --> Metric
     Bus -- "Notify" --> Cleanup
+    
+    %% Response Flow
+    Router -. "Result" .-> Encoder
+    Encoder -. "Encoded Bytes" .-> Channel
 ```
 
 ## 3. Implemented Design Patterns
