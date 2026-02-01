@@ -1,4 +1,10 @@
 host: localhost
 port: 1883
 cleanSession: true
-allowAnonymous: true
+authStrategy: anonymous
+#usersFile: "users.json"
+#database:
+#  url: jdbc:postgresql://localhost:5432/broker
+#  username: user
+#  password: password
+#  driver: org.postgresql.Driver

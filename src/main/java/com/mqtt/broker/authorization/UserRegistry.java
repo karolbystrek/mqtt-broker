@@ -17,26 +17,26 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class UserRegistry {
 
-    private static final File USERS_FILE = new File("users.json");
-
+    private final File usersFile;
     private final Map<String, User> users = new ConcurrentHashMap<>();
 
-    public UserRegistry() {
+    public UserRegistry(String filePath) {
+        this.usersFile = new File(filePath);
         loadUsers();
     }
 
     private void loadUsers() {
-        if (!Files.exists(USERS_FILE.toPath())) {
-            log.warn("Users file not found: {}", USERS_FILE);
+        if (!Files.exists(usersFile.toPath())) {
+            log.warn("Users file not found: {}", usersFile);
             return;
         }
 
         var objectMapper = new ObjectMapper();
         try {
-            List<User> users = objectMapper.readValue(USERS_FILE, new TypeReference<>() {
+            List<User> users = objectMapper.readValue(usersFile, new TypeReference<>() {
             });
             users.forEach(user -> this.users.put(user.username(), user));
-            log.info("Loaded {} users from {}", users.size(), USERS_FILE);
+            log.info("Loaded {} users from {}", users.size(), usersFile);
         } catch (JsonProcessingException e) {
             log.error("Error parsing users file: {}", e.getMessage());
         } catch (IOException e) {

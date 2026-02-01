@@ -12,10 +12,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @Slf4j
 public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
 
-    private final UserRegistry userRegistry = new UserRegistry();
+    private final UserRegistry userRegistry;
     private final AuthorizationRepository authorizationRepository = new AuthorizationRepository();
 
-    public FileBasedAuthorizationStrategy() {
+    public FileBasedAuthorizationStrategy(String usersFilePath) {
+        this.userRegistry = new UserRegistry(usersFilePath);
         populateAuthorizationTree();
     }
 
@@ -48,7 +49,7 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
     public boolean canSubscribe(String username, String topicFilter) {
         var user = userRegistry.getUser(username);
         if (user == null) return false;
-        if (user.permissions() == null || user.permissions().isEmpty()) return true;
+        if (user.permissions() == null || user.permissions().isEmpty()) return false;
 
         var entries = new CopyOnWriteArraySet<AuthorizationEntry>();
         authorizationRepository.find(TopicPath.parse(topicFilter), entries);
@@ -61,7 +62,7 @@ public class FileBasedAuthorizationStrategy implements AuthorizationStrategy {
     public boolean canPublish(String username, String topic) {
         var user = userRegistry.getUser(username);
         if (user == null) return false;
-        if (user.permissions() == null || user.permissions().isEmpty()) return true;
+        if (user.permissions() == null || user.permissions().isEmpty()) return false;
 
         var entries = new CopyOnWriteArraySet<AuthorizationEntry>();
         authorizationRepository.find(TopicPath.parse(topic), entries);
