@@ -190,7 +190,7 @@ classDiagram
     %% Algorithm A: No-Op
     class PermissiveAuthorizationStrategy {
         <<Algorithm: O(1) No-Op>>
-        +authenticate()
+        +authenticate(ConnectPacket)
         +canSubscribe(username, topicFilter)
         +canPublish(username, topic)
     }
@@ -200,7 +200,18 @@ classDiagram
         <<Algorithm: JSON Parsing & Lookup>>
         -UserRegistry registry
         -AuthorizationRepository authorizationRepository
-        +authenticate()
+        +authenticate(ConnectPacket)
+        +canSubscribe(username, topicFilter)
+        +canPublish(username, topic)
+    }
+
+    class DatabaseAuthorizationStrategy {
+        <<Algorithm: Database Query>>
+        -String url
+        -String username
+        -String password
+        -String driver
+        +authenticate(ConnectPacket)
         +canSubscribe(username, topicFilter)
         +canPublish(username, topic)
     }
@@ -208,6 +219,9 @@ classDiagram
     AuthorizationService o--> AuthorizationStrategy : Delegates
     FileBasedAuthorizationStrategy ..|> AuthorizationStrategy
     PermissiveAuthorizationStrategy ..|> AuthorizationStrategy
+    DatabaseAuthorizationStrategy ..|> AuthorizationStrategy
+
+
 ```
 
 **Pros & Cons**:
@@ -297,6 +311,8 @@ classDiagram
         +save()
         +load()
     }
+
+
 
     SessionManager o--> SessionPersistenceStrategy : delegates
     NoOpSessionPersistenceStrategy ..|> SessionPersistenceStrategy : implements
@@ -434,8 +450,6 @@ classDiagram
 * **Cons**:
     * **Synchronous Latency**: Since dispatch is synchronous, a slow listener will block the main processing thread,
       potentially degrading broker throughput.
-    * **Lapsed Listener Problem**: If listeners are not explicitly unregistered (though less relevant in a server
-      singleton lifecycle), it can lead to memory leaks.
     * **Indeterministic Ordering**: The order of notification is technically undefined (dependent on list insertion),
       implying listeners must be independent of one another.
 
@@ -931,10 +945,10 @@ classDiagram
     %% === CONTEXT & CONFIGURATION ===
     class BrokerContext {
         <<Service Container>>
-        -BrokerConfiguration config
         -AuthorizationService authorizationService
         -SessionManager sessionManager
         -SubscriptionRepository subscriptionRepository
+        -RetainedMessageRepository retainedMessageRepository
         -MessageDeliveryService messageDeliveryService
         +getAuthorizationService()
         +getSessionManager()
@@ -946,12 +960,12 @@ classDiagram
         <<Configuration>>
         -String host
         -int port
-        -boolean allowAnonymous
         -boolean cleanSession
-        +getHost()
-        +getPort()
-        +isAllowAnonymous()
-        +isCleanSession()
+        -boolean allowAnonymous
+        -String usersFile
+        -String authStrategy
+        -DatabaseConfiguration database
+        + (getters)
     }
 
     %% === NETWORK LAYER ===
@@ -968,11 +982,11 @@ classDiagram
         <<Connection State>>
         -SocketChannel channel
         -ByteBuffer buffer
-        -long lastActivity
+        -Session session
         +read() int
-        +write(ByteBuffer)
+        +getRemoteAddress()
         +getBuffer()
-        +updateLastActivity()
+        +close()
     }
 
     %% === PROTOCOL LAYER ===
@@ -984,9 +998,7 @@ classDiagram
     class MqttPacketDecoder {
         <<Decoder Implementation>>
         +decode(ByteBuffer) MqttPacket
-        -decodeFixedHeader(ByteBuffer)
-        -decodeVariableHeader(ByteBuffer)
-        -decodePayload(ByteBuffer)
+        +decodeFrame(MqttFrame frame) MqttPacket
     }
 
     %% === PIPELINE & INTERCEPTORS ===
@@ -1023,8 +1035,11 @@ classDiagram
         -Map~String,Session~ persistentSessions
         -SubscriptionRepository subscriptionRepository
         -SessionPersistenceStrategy persistenceStrategy
-        +registerSession(SocketChannel, Session)
         +getSession(SocketChannel) Session
+        +getActiveSessions() Collection<Session>
+        +registerSession(SocketChannel, Session)
+        +getClientChannel(String) SocketChannel
+        +getPersistentSession(String) Session  
         +closeSession(SocketChannel)
         +persistSessions()
     }
@@ -1038,6 +1053,9 @@ classDiagram
 
     class MessageDeliveryService {
         <<Message Distribution>>
+        -SessionManager sessionManager
+        -SubscriptionRepository subscriptionRepository
+        -RetainedMessageRepository retainedMessageRepository
         +send(SocketChannel, MqttPacket)
         +publish(MqttPacket)
         +dispatchPendingMessages(SocketChannel, Session)
@@ -1065,6 +1083,10 @@ classDiagram
     class Selector {
         <<NIO>>
         -Java NIO Selector
+        +wakeup()
+        +open()
+        +close()
+        +select(long timout)
     }
 
     class ServerSocketChannel {
@@ -1081,6 +1103,8 @@ classDiagram
     class ExecutorService {
         <<Thread Pool>>
         -Virtual Thread Pool
+        +submit(Callable<T> task)
+        +close()
     }
 
     %% === RELATIONSHIPS: Broker ===
@@ -1131,7 +1155,6 @@ classDiagram
 
     %% === RELATIONSHIPS: Execution ===
     Broker --> ExecutorService : submits tasks
-    ExecutorService --> Interceptor : runs interceptors
 ```
 
 ### B. Sequence Diagram: Client Connection Flow
@@ -1220,25 +1243,23 @@ This diagram shows how retained messages are delivered when a client subscribes 
 
 ```mermaid
 graph TD
-    Start([Client sends SUBSCRIBE<br/>topicFilter...]) --> Decode["<b>Broker decodes SUBSCRIBE</b><br/>SubscribePacketHandler.handle()"]
+    Start([Client sends SUBSCRIBE<br/>topicFilter...]) --> Decode["Broker decodes SUBSCRIBE"]
     
     Decode --> Pipeline["<b>Pipeline processes packet</b><br/>Through interceptor chain"]
     
-    Pipeline --> Subscribe["<b>SubscribePacketHandler</b><br/>• Validates authorization<br/>• Adds to SubscriptionRepository<br/>• Adds to Session.subscriptions<br/>• Creates ClientSubscribedEvent"]
+    Pipeline --> Subscribe["SubscribePacketHandler subscribes client to the topic"]
     
-    Subscribe --> SubAck["<b>MessageDeliveryService.send()</b><br/>Sends SUBACK packet to client"]
-    
-    SubAck --> Event["<b>SubscriptionEventListener.onEvent()</b><br/>Triggered by ClientSubscribedEvent<br/>for each granted topicFilter"]
-    
-    Event --> RetainedCheck{"<b>Check retained messages?</b><br/>RetainedMessageRepository<br/>.find(topicFilter)"}
+    Subscribe --> SubAck["MessageDeliveryService Sends SUBACK"]
+ 
+    SubAck --> RetainedCheck{"Retained messages exist?"}
     
     RetainedCheck -->|No matches| NoRetained["No retained messages<br/>to deliver"]
     
-    RetainedCheck -->|Messages found| GetRetained["<b>Get retained messages</b><br/>via Trie matching algorithm<br/>Returns List of RetainedMessageWithTopic"]
+    RetainedCheck -->|Messages found| GetRetained["Get retained messages"]
     
-    GetRetained --> ForEach["<b>For each retained message:</b><br/>• Build PublishPacket<br/>• Set Retain flag = 1<br/>• Use original QoS level<br/>• Use original payload"]
+    GetRetained --> ForEach["For each retained message builds PublishPacket"]
     
-    ForEach --> SendRetained["<b>MessageDeliveryService.send()</b><br/>Sends PUBLISH packet with<br/>retained message to client"]
+    ForEach --> SendRetained["PUBLISH packet is sent with retained message to client"]
     
     SendRetained --> Merge{" "}
     NoRetained --> Merge
