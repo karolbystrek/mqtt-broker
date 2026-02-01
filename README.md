@@ -130,7 +130,7 @@ business logic from interchangeable low-level algorithms. We employ it in two di
 
 * **Context (`Context`)**: `src/main/java/com/mqtt/broker/authorization/AuthorizationService.java`
 * **Strategy Interface (`Strategy`)**: `src/main/java/com/mqtt/broker/authorization/strategy/AuthorizationStrategy.java`
-* **Concrete Strategies (`ConcreteStrategy`)**: `FileBasedAuthorizationStrategy`, `PermissiveAuthorizationStrategy`
+* **Concrete Strategies (`ConcreteStrategy`)**: `FileBasedAuthorizationStrategy`, `PermissiveAuthorizationStrategy`, `DatabaseAuthorizationStrategy`
 
 **Motivation (Algorithmic Justification)**:
 We utilize the Strategy Pattern to encapsulate fundamentally different **validation algorithms**, not just data
@@ -147,6 +147,12 @@ varies significantly between environments:
     * **Logic**: Involves file system I/O, JSON deserialization (`UserRegistry`), and iterative permission matching
       against a repository.
     * **Use Case**: Production environments requiring persistent credential constraints.
+
+3. **Database Strategy (Production/Enterprise)**:
+        * **Algorithm**: SQL Query & Join.
+        * **Logic**: Authenticates and authorizes by querying relational tables (`users`, `permissions`) using JDBC and
+            mapping results to topic access rules.
+        * **Use Case**: Centralized credential management with PostgreSQL (configured via `config.yml`).
 
 This distinction is critical: The broker's core logic (`AuthorizationService`) functions independently of whether the
 underlying validation requires a simple boolean return or a complex disk read operation.
