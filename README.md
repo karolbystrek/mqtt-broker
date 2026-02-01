@@ -72,7 +72,7 @@ graph TD
     subgraph Protocol_Layer ["2. Protocol Layer"]
         Decoder["MqttPacketDecoder"]
         Encoder["MqttPacketEncoder"]
-        POJO["MqttPacket POJO"]
+        POJO["MqttPacket"]
     end
 
     subgraph Dispatcher_Layer ["3. Dispatcher Layer"]
