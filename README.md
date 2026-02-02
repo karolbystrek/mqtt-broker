@@ -1213,18 +1213,18 @@ graph TD
     
     Read --> Decode["Decode into MQTT Packet"]
     
-    Decode --> Submit["Virtual Thread Pool<br/>submits packet processing"]
+    Decode --> Submit["Virtual Thread Pool submits packet processing"]
     
     Submit --> PipelineStart["Interceptor Chain begins"]
     
-    PipelineStart --> Activity["Update session's lastActivity<br/>for Keep-Alive tracking"]
+    PipelineStart --> Activity["Update session's lastActivity for Keep-Alive tracking"]
     
     Activity --> AuthCheck{"Authorized?"}
     
-    AuthCheck -->|Unauthorized| AuthDeny["Return PUBACK/PUBREC<br/>with failure<br/>(short-circuit)"]
+    AuthCheck -->|Unauthorized| AuthDeny["Return PUBACK/PUBREC with failure (short-circuit)"]
 
     
-    AuthCheck -->|Authorized or N/A| Handler["Execute Business logic via<br/>BrokerContext services"]
+    AuthCheck -->|Authorized or N/A| Handler["Execute Business logic via BrokerContext services"]
     
     Handler --> ResultCheck{"Requieres Response?"}
     
@@ -1249,9 +1249,9 @@ This diagram shows how retained messages are delivered when a client subscribes 
 
 ```mermaid
 graph TD
-    Start([Client sends SUBSCRIBE<br/>topicFilter...]) --> Decode["Broker decodes SUBSCRIBE"]
+    Start([Client sends SUBSCRIBE, topicFilter...]) --> Decode["Broker decodes SUBSCRIBE"]
     
-    Decode --> Pipeline["<b>Pipeline processes packet</b><br/>Through interceptor chain"]
+    Decode --> Pipeline["Pipeline processes packetThrough interceptor chain"]
     
     Pipeline --> Subscribe["SubscribePacketHandler subscribes client to the topic"]
     
@@ -1259,7 +1259,7 @@ graph TD
  
     SubAck --> RetainedCheck{"Retained messages exist?"}
     
-    RetainedCheck -->|No matches| NoRetained["No retained messages<br/>to deliver"]
+    RetainedCheck -->|No matches| NoRetained["No retained messages to deliver"]
     
     RetainedCheck -->|Messages found| GetRetained["Get retained messages"]
     
@@ -1270,7 +1270,7 @@ graph TD
     SendRetained --> Merge{" "}
     NoRetained --> Merge
     
-    Merge --> End(["<b>End</b><br/>Client receives all retained<br/>messages matching subscription"])
+    Merge --> End(["End, Client receives all retained messages matching subscription"])
     
 ```
 
